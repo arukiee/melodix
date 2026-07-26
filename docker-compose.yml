@@ -1,6 +1,7 @@
 version: "3.8"
 
 services:
+  # Application
   backend:
     build: ./backend
     container_name: melodix_backend
@@ -11,7 +12,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
+  # Database
   postgres:
     image: pgvector/pgvector:pg16
     container_name: melodix_postgres
@@ -21,12 +25,26 @@ services:
       POSTGRES_DB: melodix
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "melodix"]
+      test: ["CMD","pg_isready","-U","melodix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Cache
+  redis:
+    image: redis:7-alpine
+    container_name: melodix_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 volumes:
   postgres_data:
+  redis_data:
