@@ -1,0 +1,175 @@
+.container {
+  padding: var(--space-48) var(--space-32);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-32);
+  margin-bottom: var(--space-64);
+}
+
+.avatarWrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  cursor: pointer;
+  group: avatar;
+}
+
+.avatarGradient {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bg-elevated), #222222);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-primary);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  transition: all var(--transition-normal);
+}
+
+.avatarHover {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  color: var(--text-primary);
+  font-size: var(--text-label);
+  gap: 4px;
+}
+
+.avatarWrapper:hover .avatarGradient {
+  border-color: var(--border-hover);
+  transform: scale(1.02);
+}
+
+.avatarWrapper:hover .avatarHover {
+  opacity: 1;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.name {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.roleBadge {
+  font-size: var(--text-label);
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.email {
+  color: var(--text-muted);
+  font-size: var(--text-body);
+}
+
+.section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: var(--space-32);
+  margin-bottom: var(--space-40);
+  transition: all var(--transition-normal);
+}
+
+.section:hover {
+  border-color: var(--border-hover);
+}
+
+.sectionHeader {
+  margin-bottom: var(--space-32);
+}
+
+.sectionTitle {
+  font-size: var(--text-card-title);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  margin-bottom: var(--space-8);
+}
+
+.sectionDesc {
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-24);
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-24);
+}
+
+.infoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.infoLabel {
+  font-size: var(--text-label);
+  color: var(--text-muted);
+}
+
+.infoValue {
+  font-size: var(--text-body);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.accountBox {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-input);
+  padding: var(--space-16);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dangerBox {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-input);
+  padding: var(--space-24);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

@@ -1,0 +1,157 @@
+.container {
+  padding: var(--space-40) var(--space-48);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  margin-bottom: var(--space-40);
+  transition: color var(--transition-fast);
+}
+
+.backLink:hover {
+  color: var(--text-primary);
+}
+
+.hero {
+  display: flex;
+  gap: var(--space-48);
+  margin-bottom: var(--space-48);
+  align-items: flex-start;
+}
+
+.artwork {
+  width: 320px;
+  height: 320px;
+  border-radius: var(--radius-card);
+  object-fit: cover;
+  box-shadow: var(--shadow-premium);
+  flex-shrink: 0;
+}
+
+.info {
+  flex-grow: 1;
+}
+
+.title {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-8);
+  color: var(--text-primary);
+}
+
+.composer {
+  font-size: var(--text-section-title);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-32);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-16);
+  margin-bottom: var(--space-48);
+}
+
+.favoriteBtn {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-button);
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.favoriteBtn:hover {
+  background-color: var(--bg-elevated);
+}
+
+.metadataGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-24);
+  margin-bottom: var(--space-48);
+}
+
+.metaItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.metaLabel {
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metaValue {
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.aiPrediction {
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+  border-radius: var(--radius-card);
+  padding: var(--space-24);
+  display: flex;
+  gap: var(--space-16);
+  margin-bottom: var(--space-48);
+}
+
+.aiIcon {
+  color: var(--semantic-ai);
+  flex-shrink: 0;
+}
+
+.aiTitle {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
+}
+
+.aiText {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.skillsSection {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: var(--space-24);
+}
+
+.skillsTitle {
+  font-size: var(--text-card-title);
+  font-weight: 600;
+  margin-bottom: var(--space-16);
+}
+
+.skillsList {
+  display: flex;
+  gap: var(--space-12);
+  flex-wrap: wrap;
+}
+
+.skillBadge {
+  background: var(--bg-elevated);
+  padding: var(--space-8) var(--space-16);
+  border-radius: 20px;
+  font-size: var(--text-caption);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}

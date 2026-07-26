@@ -1,0 +1,148 @@
+.container {
+  padding: var(--space-32);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-32);
+}
+
+.title {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-16);
+  margin-bottom: var(--space-32);
+}
+
+.searchWrap {
+  flex: 1;
+  max-width: 400px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-24);
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cardHeader {
+  padding: var(--space-16);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.iconBox {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.moreBtn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.moreBtn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card);
+}
+
+.cardBody {
+  padding: var(--space-16);
+  flex: 1;
+}
+
+.lessonTitle {
+  font-size: var(--text-section-title);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.lessonComposer {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-16);
+}
+
+.cardMeta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.badge {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.date {
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+}
+
+.cardFooter {
+  padding: var(--space-16);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.emptyState {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--space-48) 0;
+  color: var(--text-secondary);
+}
+
+.emptyState h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}

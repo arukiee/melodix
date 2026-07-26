@@ -1,0 +1,107 @@
+.container {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.backgroundGlow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60vh;
+  height: 60vh;
+  background: radial-gradient(circle, rgba(110, 123, 255, 0.15) 0%, rgba(21, 21, 27, 0) 70%);
+  border-radius: 50%;
+  z-index: 0;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  max-width: 400px;
+  width: 100%;
+}
+
+.iconWrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(110, 123, 255, 0.1);
+  border: 1px solid rgba(110, 123, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-32);
+  color: var(--accent-primary);
+}
+
+.title {
+  font-size: var(--text-section-title);
+  font-weight: 600;
+  margin-bottom: var(--space-8);
+  color: var(--text-primary);
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  margin-bottom: var(--space-48);
+}
+
+.progressContainer {
+  width: 100%;
+}
+
+.progressBar {
+  width: 100%;
+  height: 4px;
+  background-color: var(--bg-elevated);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: var(--space-16);
+}
+
+.progressFill {
+  height: 100%;
+  background-color: var(--accent-primary);
+  border-radius: 2px;
+  transition: width 0.3s ease-out;
+  box-shadow: 0 0 10px rgba(110, 123, 255, 0.5);
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  text-align: left;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  font-size: var(--text-caption);
+  color: var(--text-muted);
+  transition: color var(--transition-normal);
+}
+
+.step.active {
+  color: var(--text-primary);
+}
+
+.step.completed {
+  color: var(--text-secondary);
+}
+
+.stepIcon {
+  width: 16px;
+  display: flex;
+  justify-content: center;
+}

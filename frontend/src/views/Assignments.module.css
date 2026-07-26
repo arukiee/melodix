@@ -1,0 +1,203 @@
+.container {
+  padding: var(--space-32);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-32);
+}
+
+.title {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-32);
+  gap: var(--space-16);
+}
+
+.searchWrap {
+  flex: 1;
+  max-width: 400px;
+}
+
+.filters {
+  display: flex;
+  background: var(--bg-elevated);
+  padding: 4px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--border-color);
+}
+
+.filterBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: calc(var(--radius-button) - 4px);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.filterBtn.activeFilter {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-24);
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-fast), border-color var(--transition-fast);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.cardHeader {
+  padding: var(--space-20);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-12);
+}
+
+.cardTitle {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+.statusBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-primary);
+}
+
+.completed {
+  background: rgba(34, 197, 94, 0.1);
+  color: var(--status-success);
+}
+
+.past_due {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--status-error);
+}
+
+.cardBody {
+  padding: var(--space-20);
+  flex: 1;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+  font-size: var(--text-caption);
+}
+
+.metaLabel {
+  color: var(--text-secondary);
+}
+
+.metaValue {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.errorText {
+  color: var(--status-error);
+}
+
+.progressSection {
+  margin-top: var(--space-24);
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-caption);
+  margin-bottom: var(--space-8);
+}
+
+.progressLabel {
+  color: var(--text-secondary);
+}
+
+.progressRatio {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.progressBar {
+  height: 6px;
+  background: var(--bg-card);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.cardFooter {
+  padding: var(--space-16);
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.emptyState {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--space-48) 0;
+  color: var(--text-secondary);
+}
+
+.emptyState h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}

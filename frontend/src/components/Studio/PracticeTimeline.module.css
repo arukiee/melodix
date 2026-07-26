@@ -1,0 +1,74 @@
+.container {
+  height: 48px;
+  background-color: var(--bg-elevated);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 var(--space-24);
+  z-index: 10;
+}
+
+.track {
+  position: relative;
+  height: 8px;
+  background: var(--bg-card);
+  border-radius: 4px;
+  width: 100%;
+  cursor: pointer;
+}
+
+.playhead {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  background: var(--text-primary);
+  box-shadow: 0 0 8px rgba(255,255,255,0.5);
+  z-index: 5;
+  transition: left 0.1s linear;
+}
+
+.loopZone {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(59, 130, 246, 0.2);
+  border-left: 2px solid var(--accent-primary);
+  border-right: 2px solid var(--accent-primary);
+  border-radius: 2px;
+}
+
+.marker {
+  position: absolute;
+  top: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  border: 2px solid var(--bg-elevated);
+  z-index: 4;
+}
+
+.marker.mistake {
+  background: var(--status-error);
+}
+
+.marker.bookmark {
+  background: var(--accent-primary);
+}
+
+.marker.ai {
+  background: #A855F7; /* Purple for AI */
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

@@ -1,0 +1,100 @@
+.upload {
+  padding: var(--space-40) var(--space-48);
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: var(--space-48);
+}
+
+.title {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-8);
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+
+.uploadCard {
+  background: var(--bg-card);
+  border-radius: var(--radius-card);
+  padding: var(--space-48);
+  border: 1px dashed var(--border-color);
+  text-align: center;
+  transition: all var(--transition-fast);
+  margin-bottom: var(--space-32);
+}
+
+.uploadCard:hover, .uploadCard.dragActive {
+  border-color: var(--accent-primary);
+  background: var(--bg-elevated);
+}
+
+.uploadIcon {
+  color: var(--accent-primary);
+  margin-bottom: var(--space-16);
+}
+
+.uploadTitle {
+  font-size: var(--text-card-title);
+  font-weight: 600;
+  margin-bottom: var(--space-8);
+}
+
+.uploadDesc {
+  color: var(--text-secondary);
+  font-size: var(--text-body);
+  margin-bottom: var(--space-24);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-caption);
+  text-transform: uppercase;
+  margin: var(--space-32) 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.divider:not(:empty)::before {
+  margin-right: var(--space-16);
+}
+
+.divider:not(:empty)::after {
+  margin-left: var(--space-16);
+}
+
+.youtubeInput {
+  display: flex;
+  gap: var(--space-16);
+}
+
+.inputField {
+  flex-grow: 1;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-button);
+  padding: var(--space-12) var(--space-16);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  transition: border-color var(--transition-fast);
+}
+
+.inputField:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}

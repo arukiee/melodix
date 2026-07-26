@@ -1,0 +1,210 @@
+.container {
+  padding: var(--space-32);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-48);
+}
+
+.title {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: var(--space-8);
+}
+
+.subtitle {
+  font-size: var(--text-body);
+  color: var(--text-secondary);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-16);
+}
+
+.toggleGroup {
+  display: flex;
+  background: var(--bg-elevated);
+  padding: 4px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--border-color);
+}
+
+.toggleBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px 16px;
+  border-radius: calc(var(--radius-button) - 4px);
+  font-size: var(--text-caption);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toggleBtn.active {
+  background: var(--accent-primary);
+  color: #000;
+}
+
+.topThree {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: var(--space-24);
+  margin-bottom: var(--space-48);
+  padding: 0 var(--space-24);
+  height: 250px;
+}
+
+.podium {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 180px;
+  background: linear-gradient(180deg, rgba(28, 28, 36, 0) 0%, var(--bg-elevated) 100%);
+  border-radius: 24px 24px 0 0;
+  padding: var(--space-24) 0;
+  position: relative;
+}
+
+.rank1 { height: 100%; border-top: 2px solid #FFD700; }
+.rank2 { height: 80%; border-top: 2px solid #C0C0C0; }
+.rank3 { height: 70%; border-top: 2px solid #CD7F32; }
+
+.podiumAvatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  position: relative;
+  margin-bottom: var(--space-16);
+}
+
+.medalBadge {
+  position: absolute;
+  bottom: -4px;
+  right: -4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  color: #000;
+  font-weight: 700;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.podiumName {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.podiumScore {
+  font-size: var(--text-caption);
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: var(--space-16);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  padding: var(--space-12) var(--space-16);
+  border-radius: 8px;
+  transition: background var(--transition-fast);
+}
+
+.row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.row.currentUser {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.rankCol {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 60px;
+}
+
+.rankNum {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.avatarCol {
+  width: 48px;
+}
+
+.rowAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.nameCol {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nameText {
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.youBadge {
+  background: var(--accent-primary);
+  color: #000;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.scoreCol {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--accent-primary);
+}

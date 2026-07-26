@@ -1,0 +1,101 @@
+.learn {
+  padding: var(--space-40) var(--space-48);
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: var(--space-48);
+}
+
+.title {
+  font-size: var(--text-hero);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: var(--space-8);
+}
+
+.subtitle {
+  font-size: var(--text-section-title);
+  color: var(--text-secondary);
+}
+
+.searchContainer {
+  position: relative;
+  width: 320px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.searchInput {
+  width: 100%;
+  padding: 12px 16px 12px 48px;
+  border-radius: var(--radius-button);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  font-size: var(--text-body);
+  transition: all var(--transition-fast);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(110, 123, 255, 0.2);
+}
+
+.categorySection {
+  margin-bottom: var(--space-64);
+}
+
+.categoryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-24);
+}
+
+.categoryTitle {
+  font-size: var(--text-page-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.seeAll {
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: var(--text-body);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.seeAll:hover {
+  color: var(--text-primary);
+}
+
+.songList {
+  display: flex;
+  gap: var(--space-24);
+  overflow-x: auto;
+  padding-bottom: var(--space-16);
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; 
+}
+
+.songList::-webkit-scrollbar {
+  display: none;
+}
+
+.songWrapper {
+  min-width: 240px;
+  max-width: 240px;
+}
