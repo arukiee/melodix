@@ -30,14 +30,25 @@ import { Friends } from './views/Friends';
 import { Leaderboards } from './views/Leaderboards';
 
 function AppRoutes() {
-  const { profile } = useUser();
-  const { email, accountType, activeRole, isOnboardingComplete } = profile;
+  const { profile, isAuthenticated, isLoading } = useUser();
+  const { activeRole, isOnboardingComplete } = profile;
+
+  // Show nothing while restoring session
+  if (isLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100vh', background: 'var(--bg-primary, #0a0a0a)', 
+        color: 'var(--text-secondary, #888)', fontSize: '16px'
+      }}>
+        Loading...
+      </div>
+    );
+  }
 
   // Route guard for authenticated users
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    // If they have no email, they are not logged in.
-    if (!email) return <Navigate to="/login" />;
-    // If they are logged in but haven't finished onboarding, force them there.
+    if (!isAuthenticated) return <Navigate to="/login" />;
     if (!isOnboardingComplete) return <Navigate to="/onboarding" />;
     return children;
   };
@@ -47,7 +58,7 @@ function AppRoutes() {
       <Route path="/" element={<Splash />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/onboarding" element={isAuthenticated ? <Onboarding /> : <Navigate to="/login" />} />
       
       {/* Student Routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Layout role="student"><Dashboard /></Layout></ProtectedRoute>} />

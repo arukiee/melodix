@@ -1,0 +1,3 @@
+TOKEN_TYPE_ACCESS = "access"
+TOKEN_TYPE_REFRESH = "refresh"
+PASSWORD_SCHEMES = ["bcrypt"]

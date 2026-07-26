@@ -32,6 +32,21 @@
 .searchWrap {
   flex: 1;
   max-width: 400px;
+  position: relative;
+}
+
+.searchWrap :global(.input-component) {
+  padding-left: 40px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 10;
 }
 
 .grid {
@@ -75,18 +90,37 @@
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.moreBtn {
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.iconBtn {
   background: none;
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.moreBtn:hover {
+.iconBtn:hover {
+  background: rgba(255,255,255,0.1);
   color: var(--text-primary);
-  background: var(--bg-card);
+}
+
+.iconBtn.danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.iconBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .cardBody {
@@ -99,6 +133,19 @@
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.draftBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .lessonComposer {
@@ -145,4 +192,12 @@
 .emptyState h3 {
   color: var(--text-primary);
   margin-bottom: 8px;
+}
+
+.loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--space-48) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-body);
 }

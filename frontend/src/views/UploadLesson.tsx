@@ -4,6 +4,7 @@ import { Upload as UploadIcon, FileAudio, Video, CheckCircle, ArrowRight, Loader
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { lessonsApi } from '../api/lessons';
 import styles from './UploadLesson.module.css';
 
 type Step = 'source' | 'details' | 'processing' | 'success';
@@ -16,7 +17,9 @@ export function UploadLesson() {
   // Form State
   const [title, setTitle] = useState('');
   const [composer, setComposer] = useState('');
-  const [level, setLevel] = useState('Beginner');
+  const [category, setCategory] = useState('');
+  const [duration, setDuration] = useState('5');
+  const [level, setLevel] = useState<'BEGINNER'|'INTERMEDIATE'|'ADVANCED'>('BEGINNER');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,7 +29,7 @@ export function UploadLesson() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !composer) {
       setError('Please fill out all required fields.');
@@ -36,11 +39,29 @@ export function UploadLesson() {
     setIsSubmitting(true);
     setStep('processing');
     
-    // Simulate AI Processing
-    setTimeout(() => {
-      setStep('success');
+    try {
+      await lessonsApi.createLesson({
+        title,
+        genre: composer,
+        category,
+        difficulty: level,
+        estimated_duration: parseInt(duration) || 5,
+        is_published: true, // Auto publish for now, can be modified later
+        visibility: 'PUBLIC'
+      });
+      
+      // Simulate AI Processing time for UX
+      setTimeout(() => {
+        setStep('success');
+        setIsSubmitting(false);
+      }, 1500);
+      
+    } catch (err) {
+      console.error(err);
+      setError('Failed to create lesson. Please try again.');
+      setStep('details');
       setIsSubmitting(false);
-    }, 3000);
+    }
   };
 
   return (
@@ -120,7 +141,7 @@ export function UploadLesson() {
 
             <div className={styles.formGrid}>
               <Input 
-                label="Song Title" 
+                label="Lesson Title" 
                 value={title} 
                 onChange={(e) => setTitle(e.target.value)} 
                 required 
@@ -132,19 +153,34 @@ export function UploadLesson() {
                 required 
               />
             </div>
+            
+            <div className={styles.formGrid}>
+              <Input 
+                label="Category" 
+                placeholder="e.g. Classical, Theory, Exercises"
+                value={category} 
+                onChange={(e) => setCategory(e.target.value)} 
+              />
+              <Input 
+                label="Estimated Duration (min)" 
+                type="number"
+                value={duration} 
+                onChange={(e) => setDuration(e.target.value)} 
+              />
+            </div>
 
             <div className={styles.inputGroup}>
               <label className={styles.label}>Difficulty Level</label>
-              <select className={styles.select} value={level} onChange={(e) => setLevel(e.target.value)}>
-                <option>Beginner</option>
-                <option>Intermediate</option>
-                <option>Advanced</option>
+              <select className={styles.select} value={level} onChange={(e) => setLevel(e.target.value as any)}>
+                <option value="BEGINNER">Beginner</option>
+                <option value="INTERMEDIATE">Intermediate</option>
+                <option value="ADVANCED">Advanced</option>
               </select>
             </div>
 
             <div className={styles.footer}>
-              <Button variant="ghost" type="button" onClick={() => setStep('source')}>Back</Button>
-              <Button variant="primary" type="submit">Upload & Process</Button>
+              <Button variant="ghost" type="button" onClick={() => setStep('source')} disabled={isSubmitting}>Back</Button>
+              <Button variant="primary" type="submit" disabled={isSubmitting}>Upload & Process</Button>
             </div>
           </motion.form>
         )}

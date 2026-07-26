@@ -1,26 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Plus, FileMusic, MoreVertical } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Search, Filter, Plus, FileMusic, Trash2, Edit2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { lessonsApi } from '../api/lessons';
+import type { Lesson } from '../api/lessons';
 import styles from './Lessons.module.css';
-
-const mockLessons = [
-  { id: '1', title: 'Clair de Lune', composer: 'Claude Debussy', level: 'Intermediate', dateAdded: 'Oct 12, 2025' },
-  { id: '2', title: 'Für Elise', composer: 'Ludwig van Beethoven', level: 'Beginner', dateAdded: 'Sep 28, 2025' },
-  { id: '3', title: 'C Major Scale Exercise', composer: 'Teacher Created', level: 'Beginner', dateAdded: 'Yesterday' },
-  { id: '4', title: 'Gymnopédie No.1', composer: 'Erik Satie', level: 'Intermediate', dateAdded: 'Oct 15, 2025' },
-];
 
 export function Lessons() {
   const navigate = useNavigate();
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const filteredLessons = mockLessons.filter(l => 
+  const fetchLessons = async () => {
+    try {
+      setLoading(true);
+      const data = await lessonsApi.getTeacherLessons();
+      setLessons(data.items);
+    } catch (err) {
+      console.error('Failed to load teacher lessons', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLessons();
+  }, []);
+
+  const filteredLessons = lessons.filter(l => 
     l.title.toLowerCase().includes(search.toLowerCase()) || 
-    l.composer.toLowerCase().includes(search.toLowerCase())
+    (l.genre && l.genre.toLowerCase().includes(search.toLowerCase())) ||
+    (l.category && l.category.toLowerCase().includes(search.toLowerCase()))
   );
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this lesson?")) return;
+    
+    try {
+      setDeletingId(id);
+      await lessonsApi.deleteLesson(id);
+      setLessons(prev => prev.filter(l => l.id !== id));
+    } catch (err) {
+      console.error('Failed to delete lesson', err);
+      alert('Failed to delete lesson.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -31,15 +61,16 @@ export function Lessons() {
         </div>
         <Button variant="primary" onClick={() => navigate('/teacher/lessons/upload')}>
           <Plus size={16} style={{ marginRight: '8px' }} />
-          Upload Lesson
+          Create Lesson
         </Button>
       </header>
 
       <div className={styles.toolbar}>
         <div className={styles.searchWrap}>
+          <Search size={18} className={styles.searchIcon} />
           <Input 
             label=""
-            placeholder="Search lessons or composers..."
+            placeholder="Search lessons or categories..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -51,43 +82,69 @@ export function Lessons() {
       </div>
 
       <div className={styles.grid}>
-        {filteredLessons.length === 0 ? (
+        {loading ? (
+          <div className={styles.loading}>Loading lessons...</div>
+        ) : filteredLessons.length === 0 ? (
           <div className={styles.emptyState}>
             <h3>No lessons found</h3>
             <p>Try adjusting your search or upload a new lesson.</p>
           </div>
         ) : (
-          filteredLessons.map((lesson, index) => (
-            <motion.div 
-              key={lesson.id} 
-              className={styles.card}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <div className={styles.cardHeader}>
-                <div className={styles.iconBox}>
-                  <FileMusic size={24} color="var(--accent-primary)" />
+          <AnimatePresence>
+            {filteredLessons.map((lesson, index) => (
+              <motion.div 
+                key={lesson.id} 
+                className={styles.card}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <div className={styles.cardHeader}>
+                  <div className={styles.iconBox}>
+                    <FileMusic size={24} color="var(--accent-primary)" />
+                  </div>
+                  <div className={styles.actions}>
+                    <button 
+                      className={styles.iconBtn} 
+                      onClick={() => navigate(`/teacher/lessons/edit/${lesson.id}`)}
+                      title="Edit Lesson"
+                    >
+                      <Edit2 size={16} />
+                    </button>
+                    <button 
+                      className={`${styles.iconBtn} ${styles.danger}`} 
+                      onClick={() => handleDelete(lesson.id)}
+                      disabled={deletingId === lesson.id}
+                      title="Delete Lesson"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-                <button className={styles.moreBtn} onClick={() => alert('Context menu')}>
-                  <MoreVertical size={16} />
-                </button>
-              </div>
-              <div className={styles.cardBody}>
-                <h3 className={styles.lessonTitle}>{lesson.title}</h3>
-                <p className={styles.lessonComposer}>{lesson.composer}</p>
-                <div className={styles.cardMeta}>
-                  <span className={styles.badge}>{lesson.level}</span>
-                  <span className={styles.date}>{lesson.dateAdded}</span>
+                <div className={styles.cardBody}>
+                  <h3 className={styles.lessonTitle}>
+                    {lesson.title}
+                    {!lesson.is_published && <span className={styles.draftBadge}>Draft</span>}
+                  </h3>
+                  <p className={styles.lessonComposer}>{lesson.category || 'Uncategorized'}</p>
+                  <div className={styles.cardMeta}>
+                    <span className={styles.badge}>
+                      {lesson.difficulty ? lesson.difficulty.charAt(0) + lesson.difficulty.slice(1).toLowerCase() : 'Beginner'}
+                    </span>
+                    <span className={styles.date}>
+                      {new Date(lesson.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className={styles.cardFooter}>
-                <Button variant="secondary" style={{ width: '100%' }} onClick={() => navigate('/teacher/assignments/create')}>
-                  Assign
-                </Button>
-              </div>
-            </motion.div>
-          ))
+                <div className={styles.cardFooter}>
+                  <Button variant="secondary" style={{ width: '100%' }} onClick={() => navigate('/teacher/assignments/create')}>
+                    Assign
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         )}
       </div>
     </div>

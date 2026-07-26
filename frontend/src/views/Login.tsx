@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Music, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { GoogleLogin } from '@react-oauth/google';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useUser } from '../context/UserContext';
+import { apiClient } from '../api/client';
 import styles from './Login.module.css';
 
 const GoogleIcon = () => (
@@ -18,35 +20,49 @@ const GoogleIcon = () => (
 
 export function Login() {
   const navigate = useNavigate();
-
-  const { profile, updateProfile } = useUser();
+  const { profile, isAuthenticated, login } = useUser();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   // If already logged in, redirect away from login
   useEffect(() => {
-    if (profile.email) {
-      navigate('/dashboard');
+    if (isAuthenticated) {
+      if (profile.isOnboardingComplete) {
+        navigate(profile.role === 'TEACHER' ? '/teacher' : '/dashboard');
+      } else {
+        navigate('/onboarding');
+      }
     }
-  }, [profile.email, navigate]);
+  }, [isAuthenticated, profile, navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate OAuth / Login setting base profile data
-    updateProfile({
-      firstName: 'Sarah',
-      lastName: 'Jenkins',
-      email: 'sarah@example.com'
-    });
-    // Navigate to dashboard. The App.tsx router will intercept and redirect to /onboarding if needed.
-    navigate('/dashboard');
+    setError('');
+    try {
+      const formData = new URLSearchParams();
+      formData.append('username', email);
+      formData.append('password', password);
+      
+      const { data } = await apiClient.post('/auth/login', formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      await login(data.access_token, data.refresh_token);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to login');
+    }
   };
 
-  const handleGoogleAuth = () => {
-    updateProfile({
-      firstName: 'Sarah',
-      lastName: 'Jenkins',
-      email: 'sarah@example.com'
-    });
-    navigate('/dashboard');
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setError('');
+    try {
+      const { data } = await apiClient.post('/auth/google', {
+        credential: credentialResponse.credential
+      });
+      await login(data.access_token, data.refresh_token);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Google authentication failed');
+    }
   };
 
   return (
@@ -97,16 +113,21 @@ export function Login() {
           </div>
 
           <form className={styles.form} onSubmit={handleLogin}>
+            {error && <div className={styles.error}>{error}</div>}
             <Input 
               label="Email" 
               type="email" 
               placeholder="sarah@example.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required 
             />
             <Input 
               label="Password" 
               type="password" 
               placeholder="••••••••" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required 
             />
             
@@ -122,9 +143,14 @@ export function Login() {
           <div className={styles.divider}>Or continue with</div>
 
           <div className={styles.oauthGroup}>
-            <Button variant="secondary" type="button" onClick={handleGoogleAuth} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              <GoogleIcon /> Continue with Google
-            </Button>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('Google authentication failed')}
+              theme="filled_black"
+              size="large"
+              width="100%"
+              text="continue_with"
+            />
           </div>
 
           <div className={styles.footer}>

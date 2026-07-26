@@ -1,5 +1,6 @@
 
 import { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Settings, Shield, Bell, Check, Edit2, LogOut, Trash2, Camera, Link as LinkIcon, Music, Target, Clock, MonitorPlay, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
@@ -9,8 +10,10 @@ import { useUser } from '../context/UserContext';
 import styles from './Profile.module.css';
 
 export function Profile() {
-  const { profile, updateProfile, updatePreferences, updatePrivacy, resetUser } = useUser();
+  const { profile, updateProfile, updatePreferences, updatePrivacy, saveUserInfo, saveProfile, logout } = useUser();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Temporary edit state
@@ -37,14 +40,29 @@ export function Profile() {
     }
   };
 
-  const handleSave = () => {
-    updateProfile(editForm);
-    setIsEditing(false);
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const fullName = `${editForm.firstName} ${editForm.lastName}`.trim();
+      await saveUserInfo(fullName);
+      await saveProfile({
+        skill_level: profile.preferences.pianoExperience || undefined,
+        preferred_instrument: profile.preferences.defaultInstrument || undefined,
+        daily_practice_goal: parseInt(profile.preferences.dailyPracticeGoal) || undefined,
+        preferred_genres: profile.preferences.favoriteGenres.length ? profile.preferences.favoriteGenres : undefined,
+      });
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      alert('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSignOut = () => {
-    resetUser();
-    window.location.href = '/login';
+    logout();
+    navigate('/login');
   };
 
   const handleResetProgress = () => {
@@ -56,7 +74,7 @@ export function Profile() {
 
   const handleDeleteAccount = () => {
     if (confirm("Are you sure you want to permanently delete your account? This cannot be undone.")) {
-      resetUser();
+      logout();
       window.location.href = '/login';
     }
   };
@@ -111,9 +129,9 @@ export function Profile() {
           ) : (
             <div style={{ display: 'flex', gap: '12px' }}>
               <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-              <Button variant="primary" onClick={handleSave}>
+              <Button variant="primary" onClick={handleSave} disabled={isSaving}>
                 <Check size={16} style={{ marginRight: '8px' }} />
-                Save Changes
+                {isSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           )}
@@ -193,13 +211,20 @@ export function Profile() {
             <div style={{ width: '40px', height: '40px', background: '#FFF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 'bold' }}>G</div>
             <div>
               <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Google</div>
-              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)' }}>{profile.email}</div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)' }}>{profile.authProvider === 'GOOGLE' ? profile.email : 'Not connected'}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-success)', fontSize: 'var(--text-label)', fontWeight: 500 }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-success)' }} />
-            Connected
-          </div>
+          {profile.authProvider === 'GOOGLE' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-success)', fontSize: 'var(--text-label)', fontWeight: 500 }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-success)' }} />
+              Connected
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: 'var(--text-label)', fontWeight: 500 }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+              Not linked
+            </div>
+          )}
         </div>
       </section>
 
