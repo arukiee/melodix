@@ -13,3 +13,4 @@ httpx
 pgvector
 pydantic-settings
 pytest
+minio
