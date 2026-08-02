@@ -26,6 +26,8 @@ def create_app() -> FastAPI:
 
     # Include versioned API router
     app.include_router(api_v1_router)
+    from app.routers.celery_router import router as celery_router
+    app.include_router(celery_router)
 
     @app.on_event("startup")
     async def on_startup() -> None:

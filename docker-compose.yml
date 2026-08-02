@@ -78,6 +78,32 @@ services:
       retries: 5
 
 
+  celery_worker:
+    build: ./backend
+    container_name: melodix_celery_worker
+    env_file: .env
+    command: celery -A app.celery_app worker --loglevel=info
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.celery_app", "inspect", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  celery_beat:
+    build: ./backend
+    container_name: melodix_celery_beat
+    env_file: .env
+    command: celery -A app.celery_app beat --loglevel=info
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/celery/beat-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   redis_data:

@@ -14,3 +14,5 @@ pgvector
 pydantic-settings
 pytest
 minio
+redis>=5.0,<6.0
+celery>=5.4,<5.5
