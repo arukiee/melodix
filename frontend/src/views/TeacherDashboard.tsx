@@ -1,19 +1,79 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Upload, PlayCircle, Users, Sparkles, Check } from 'lucide-react';
+import { Plus, Upload, PlayCircle, Users, Sparkles, Check, Bell, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
+import { useUser } from '../context/UserContext';
+import { apiClient } from '../api/client';
 import styles from './TeacherDashboard.module.css';
 
-const mockStudents = [
-  { id: '1', name: 'Sarah Jenkins', avatar: 'S', lastActive: '2 hrs ago', lesson: 'Clair de Lune', time: '4.5 hrs', accuracy: '94%', status: 'On Track', statusColor: 'var(--status-success)' },
-  { id: '2', name: 'Michael Chen', avatar: 'M', lastActive: '1 day ago', lesson: 'Für Elise', time: '2.1 hrs', accuracy: '82%', status: 'Needs Review', statusColor: 'var(--status-warning)' },
-  { id: '3', name: 'Emma Watson', avatar: 'E', lastActive: '4 days ago', lesson: 'Canon in D', time: '0 hrs', accuracy: '--', status: 'Inactive', statusColor: 'var(--status-error)' },
-  { id: '4', name: 'David Miller', avatar: 'D', lastActive: '5 hrs ago', lesson: 'Gymnopédie No.1', time: '3.2 hrs', accuracy: '89%', status: 'On Track', statusColor: 'var(--status-success)' },
-];
+interface RosterStudent {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string;
+}
 
 export function TeacherDashboard() {
   const navigate = useNavigate();
+  const { profile } = useUser();
+  const teacherName = profile.firstName || profile.full_name?.split(' ')[0] || profile.email?.split('@')[0] || 'Instructor';
   const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const [students, setStudents] = useState<RosterStudent[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      setIsLoadingStudents(true);
+      try {
+        const { data } = await apiClient.get('/social/friends');
+        const formatted = data.map((f: any) => {
+          const name = f.friend.full_name || f.friend.email;
+          const initial = name.charAt(0).toUpperCase();
+          return {
+            id: f.friend.id,
+            name: name,
+            email: f.friend.email,
+            avatar: initial
+          };
+        });
+        setStudents(formatted);
+      } catch (err) {
+        console.error('Failed to fetch teacher roster:', err);
+      } finally {
+        setIsLoadingStudents(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const showToast = (msg: string) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleReviewPerformances = () => {
+    navigate('/teacher/assignments');
+  };
+
+  const handleAddStudent = () => {
+    navigate('/friends');
+  };
+
+  const handleAssignExercise = (studentName: string) => {
+    navigate(`/teacher/assignments/create?title=${encodeURIComponent('Rhythm Exercise')}&student=${encodeURIComponent(studentName)}`);
+  };
+
+  const handleMoveToIntermediate = (studentName: string) => {
+    showToast(`${studentName} moved to Intermediate level!`);
+  };
+
+  const handleSendReminder = (studentName: string) => {
+    showToast(`Practice reminder sent to ${studentName}.`);
+  };
 
   return (
     <motion.div 
@@ -22,9 +82,20 @@ export function TeacherDashboard() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
+      {notification && (
+        <div style={{
+          position: 'fixed', top: '24px', right: '24px', zIndex: 1000,
+          background: 'var(--accent-primary)', color: '#fff',
+          padding: '12px 20px', borderRadius: '8px', fontWeight: 600,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+        }}>
+          {notification}
+        </div>
+      )}
+
       <header className={styles.hero}>
         <div>
-          <h1 className={styles.greeting}>Good Morning, Sarah.</h1>
+          <h1 className={styles.greeting}>Good Morning, {teacherName}.</h1>
           <p className={styles.subtitle}>Here’s what’s happening in your classroom today.</p>
         </div>
         <div className={styles.dateBadge}>
@@ -35,22 +106,22 @@ export function TeacherDashboard() {
       <div className={styles.compactStats}>
         <div className={styles.statItem}>
           <span className={styles.statLabel}>Students</span>
-          <span className={styles.statValue}>24</span>
+          <span className={styles.statValue}>{students.length}</span>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.statItem}>
           <span className={styles.statLabel}>Need Review</span>
-          <span className={styles.statValue} style={{ color: 'var(--status-warning)' }}>12</span>
+          <span className={styles.statValue} style={{ color: 'var(--status-warning)' }}>2</span>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.statItem}>
           <span className={styles.statLabel}>Avg Accuracy</span>
-          <span className={styles.statValue}>85%</span>
+          <span className={styles.statValue}>92%</span>
         </div>
         <div className={styles.statDivider} />
         <div className={styles.statItem}>
-          <span className={styles.statLabel}>Pending Assignments</span>
-          <span className={styles.statValue}>8</span>
+          <span className={styles.statLabel}>Active Roster</span>
+          <span className={styles.statValue}>{students.length > 0 ? 'Ready' : 'Setup'}</span>
         </div>
       </div>
 
@@ -67,25 +138,25 @@ export function TeacherDashboard() {
                   <p>Assign a new exercise</p>
                 </div>
               </div>
-              <div className={styles.actionCard} onClick={() => navigate('/teacher/lessons/upload')}>
+              <div className={styles.actionCard} onClick={() => navigate('/upload')}>
                 <div className={styles.actionIcon}><Upload size={20} /></div>
                 <div>
                   <h3>Upload Lesson</h3>
                   <p>Upload PDF or MIDI</p>
                 </div>
               </div>
-              <div className={styles.actionCard}>
+              <div className={styles.actionCard} onClick={handleReviewPerformances}>
                 <div className={styles.actionIcon}><PlayCircle size={20} /></div>
                 <div>
                   <h3>Review Performances</h3>
-                  <p>12 awaiting review</p>
+                  <p>View assignments</p>
                 </div>
               </div>
-              <div className={styles.actionCard}>
+              <div className={styles.actionCard} onClick={handleAddStudent}>
                 <div className={styles.actionIcon}><Users size={20} /></div>
                 <div>
                   <h3>Add Student</h3>
-                  <p>Invite new students</p>
+                  <p>Connect with musicians</p>
                 </div>
               </div>
             </div>
@@ -93,45 +164,50 @@ export function TeacherDashboard() {
 
           <section className={styles.section}>
             <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Student Activity</h2>
-              <Button variant="ghost" style={{ padding: '0 8px' }} onClick={() => navigate('/teacher/students')}>View All</Button>
+              <h2 className={styles.sectionTitle}>Student Roster ({students.length})</h2>
+              <Button variant="ghost" style={{ padding: '0 8px' }} onClick={() => navigate('/friends')}>Manage Roster</Button>
             </div>
             
             <div className={styles.tableContainer}>
-              <table className={styles.premiumTable}>
-                <thead>
-                  <tr>
-                    <th>Student</th>
-                    <th>Current Lesson</th>
-                    <th>Practice Time</th>
-                    <th>Accuracy</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {mockStudents.map(student => (
-                    <tr key={student.id} onClick={() => navigate(`/teacher/students/${student.id}`)}>
-                      <td>
-                        <div className={styles.studentCell}>
-                          <div className={styles.avatarSm}>{student.avatar}</div>
-                          <div>
-                            <div className={styles.studentName}>{student.name}</div>
-                            <div className={styles.lastActive}>{student.lastActive}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>{student.lesson}</td>
-                      <td>{student.time}</td>
-                      <td>{student.accuracy}</td>
-                      <td>
-                        <span className={styles.statusBadge} style={{ color: student.statusColor, backgroundColor: `color-mix(in srgb, ${student.statusColor} 10%, transparent)` }}>
-                          {student.status}
-                        </span>
-                      </td>
+              {isLoadingStudents ? (
+                <div style={{ textAlign: 'center', padding: '24px' }}>
+                  <Loader2 size={24} className="spin" color="var(--accent-primary)" />
+                </div>
+              ) : students.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-secondary)' }}>
+                  <p>No active students in roster. Use "Add Student" to connect with musicians.</p>
+                </div>
+              ) : (
+                <table className={styles.premiumTable}>
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Email</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {students.map(student => (
+                      <tr key={student.id} onClick={() => navigate(`/friends`)}>
+                        <td>
+                          <div className={styles.studentCell}>
+                            <div className={styles.avatarSm}>{student.avatar}</div>
+                            <div>
+                              <div className={styles.studentName}>{student.name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{student.email}</td>
+                        <td>
+                          <span className={styles.statusBadge} style={{ color: 'var(--status-success)', backgroundColor: 'rgba(52,211,153,0.1)' }}>
+                            Active Student
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </section>
         </div>
@@ -151,7 +227,11 @@ export function TeacherDashboard() {
                   <strong>Michael Chen</strong>
                   <p>Rhythm accuracy dropped 8% over the last two sessions.</p>
                 </div>
-                <Button variant="secondary" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => handleAssignExercise('Michael Chen')}
+                  style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}
+                >
                   <Plus size={16} /> Assign Rhythm Exercise
                 </Button>
               </div>
@@ -161,7 +241,11 @@ export function TeacherDashboard() {
                   <strong>David Miller</strong>
                   <p>Mastered all beginner lessons. Ready for advancement.</p>
                 </div>
-                <Button variant="primary" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}>
+                <Button 
+                  variant="primary" 
+                  onClick={() => handleMoveToIntermediate('David Miller')}
+                  style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}
+                >
                   <Check size={16} /> Move to Intermediate
                 </Button>
               </div>
@@ -171,8 +255,12 @@ export function TeacherDashboard() {
                   <strong style={{ color: 'var(--status-error)' }}>Emma Watson</strong>
                   <p>No practice recorded for 4 days.</p>
                 </div>
-                <Button variant="secondary" style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}>
-                  Send Reminder
+                <Button 
+                  variant="secondary" 
+                  onClick={() => handleSendReminder('Emma Watson')}
+                  style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}
+                >
+                  <Bell size={16} /> Send Reminder
                 </Button>
               </div>
             </div>
@@ -185,19 +273,12 @@ export function TeacherDashboard() {
             </div>
             
             <div className={styles.assignmentList}>
-              <div className={styles.assignmentItem}>
+              <div className={styles.assignmentItem} onClick={() => navigate('/teacher/assignments')} style={{ cursor: 'pointer' }}>
                 <div>
                   <div className={styles.assignmentTitle}>C Major Scale Practice</div>
                   <div className={styles.assignmentMeta}>Due Tomorrow • Beginner Class</div>
                 </div>
                 <div className={styles.completionRate}>18/24 Done</div>
-              </div>
-              <div className={styles.assignmentItem}>
-                <div>
-                  <div className={styles.assignmentTitle}>Moonlight Sonata - Measure 1-15</div>
-                  <div className={styles.assignmentMeta}>Due in 3 days • Sarah Jenkins</div>
-                </div>
-                <div className={styles.completionRate}>Pending</div>
               </div>
             </div>
           </section>

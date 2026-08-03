@@ -57,60 +57,12 @@ def login_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordR
         "token_type": "bearer",
     }
 
-from google.oauth2 import id_token
-from google.auth.transport import requests
+from app.services.auth_service import AuthService
+from app.services.dependencies import get_auth_service
 
 @router.post("/google", response_model=Token)
-async def google_auth(request: GoogleLoginRequest, db: Session = Depends(get_db)):
-    try:
-        # Verify the token with Google
-        token_info = id_token.verify_oauth2_token(
-            request.credential,
-            requests.Request(),
-            settings.GOOGLE_CLIENT_ID
-        )
-        
-        email = token_info.get("email")
-        name = token_info.get("name", "Google User")
-        picture = token_info.get("picture")
-
-        if not email:
-            raise HTTPException(status_code=400, detail="Email not found in Google token")
-
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid Google token")
-
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        # User doesn't exist, create them
-        user = User(
-            email=email,
-            full_name=name,
-            avatar_url=picture,
-            auth_provider="GOOGLE",
-            role="STUDENT",
-            onboarding_completed=False
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # Create Profile
-        profile = Profile(user_id=user.id)
-        db.add(profile)
-        db.commit()
-        db.refresh(profile)
-    else:
-        # User exists, link Google if it was email based before
-        if user.auth_provider == "EMAIL":
-            user.auth_provider = "GOOGLE"
-            db.commit()
-
-    return {
-        "access_token": create_access_token(user.id, user.role),
-        "refresh_token": create_refresh_token(user.id),
-        "token_type": "bearer",
-    }
+def google_auth(request: GoogleLoginRequest, auth_service: AuthService = Depends(get_auth_service)):
+    return auth_service.google_login(request.credential)
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):

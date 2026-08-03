@@ -1,19 +1,36 @@
 import { useState } from 'react';
-import { Trophy, Medal, ChevronUp, ChevronDown, Minus, Crown } from 'lucide-react';
+import { ChevronUp, ChevronDown, Minus, Crown } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useUser } from '../context/UserContext';
 import styles from './Leaderboards.module.css';
 
 const MOCK_LEADERBOARD = [
   { rank: 1, name: 'Alex Rivera', score: 15420, trend: 'up', avatar: 'A' },
-  { rank: 2, name: 'Sarah Jenkins', score: 14950, trend: 'up', avatar: 'S', isCurrentUser: true },
+  { rank: 2, name: 'CURRENT_USER', score: 14950, trend: 'up', avatar: 'S', isCurrentUser: true },
   { rank: 3, name: 'Maria Chen', score: 14200, trend: 'down', avatar: 'M' },
   { rank: 4, name: 'James Wilson', score: 13800, trend: 'same', avatar: 'J' },
   { rank: 5, name: 'Emma Davis', score: 12100, trend: 'up', avatar: 'E' },
 ];
 
 export function Leaderboards() {
+  const { profile } = useUser();
+  const currentUserName = profile.full_name?.trim() || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.email?.split('@')[0] || 'You';
+  const currentUserInitials = currentUserName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'Y';
+
+  const leaderboardData = MOCK_LEADERBOARD.map(item => {
+    if (item.isCurrentUser) {
+      return {
+        ...item,
+        name: currentUserName,
+        avatar: currentUserInitials,
+      };
+    }
+    return item;
+  });
+
   const [filter, setFilter] = useState<'friends' | 'global'>('friends');
   const [timeframe, setTimeframe] = useState<'weekly' | 'allTime'>('weekly');
+
 
   return (
     <div className={styles.container}>
@@ -38,37 +55,37 @@ export function Leaderboards() {
         {/* Rank 2 */}
         <motion.div className={`${styles.podium} ${styles.rank2}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <div className={styles.podiumAvatar}>
-            {MOCK_LEADERBOARD[1].avatar}
+            {leaderboardData[1].avatar}
             <div className={styles.medalBadge} style={{ background: '#C0C0C0' }}>2</div>
           </div>
-          <h3 className={styles.podiumName}>{MOCK_LEADERBOARD[1].name}</h3>
-          <p className={styles.podiumScore}>{MOCK_LEADERBOARD[1].score} XP</p>
+          <h3 className={styles.podiumName}>{leaderboardData[1].name}</h3>
+          <p className={styles.podiumScore}>{leaderboardData[1].score} XP</p>
         </motion.div>
 
         {/* Rank 1 */}
         <motion.div className={`${styles.podium} ${styles.rank1}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <Crown size={32} color="#FFD700" style={{ marginBottom: '8px' }} />
           <div className={styles.podiumAvatar}>
-            {MOCK_LEADERBOARD[0].avatar}
+            {leaderboardData[0].avatar}
             <div className={styles.medalBadge} style={{ background: '#FFD700' }}>1</div>
           </div>
-          <h3 className={styles.podiumName}>{MOCK_LEADERBOARD[0].name}</h3>
-          <p className={styles.podiumScore}>{MOCK_LEADERBOARD[0].score} XP</p>
+          <h3 className={styles.podiumName}>{leaderboardData[0].name}</h3>
+          <p className={styles.podiumScore}>{leaderboardData[0].score} XP</p>
         </motion.div>
 
         {/* Rank 3 */}
         <motion.div className={`${styles.podium} ${styles.rank3}`} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className={styles.podiumAvatar}>
-            {MOCK_LEADERBOARD[2].avatar}
+            {leaderboardData[2].avatar}
             <div className={styles.medalBadge} style={{ background: '#CD7F32' }}>3</div>
           </div>
-          <h3 className={styles.podiumName}>{MOCK_LEADERBOARD[2].name}</h3>
-          <p className={styles.podiumScore}>{MOCK_LEADERBOARD[2].score} XP</p>
+          <h3 className={styles.podiumName}>{leaderboardData[2].name}</h3>
+          <p className={styles.podiumScore}>{leaderboardData[2].score} XP</p>
         </motion.div>
       </div>
 
       <div className={styles.list}>
-        {MOCK_LEADERBOARD.slice(3).map((user, index) => (
+        {leaderboardData.slice(3).map((user, index) => (
           <motion.div 
             key={user.rank} 
             className={`${styles.row} ${user.isCurrentUser ? styles.currentUser : ''}`}

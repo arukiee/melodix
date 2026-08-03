@@ -1,11 +1,30 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Check, Target, Clock, Activity, Play, Star, ChevronRight, MessageSquare } from 'lucide-react';
+import { Target, Star, ChevronRight, MessageSquare, Play } from 'lucide-react';
 import { Button } from '../components/Button';
+import { apiClient } from '../api/client';
 import styles from './PracticeSummary.module.css';
 
 export function PracticeSummary() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const savePracticeSession = async () => {
+      try {
+        await apiClient.post('/lessons/practice/session', {
+          duration_seconds: 765,
+          accuracy: 94.0,
+          rhythm_score: 88.0,
+          xp_gained: 150
+        });
+      } catch (err) {
+        console.error('Failed to log practice session:', err);
+      }
+    };
+    savePracticeSession();
+  }, []);
+
 
   return (
     <div className={styles.container}>

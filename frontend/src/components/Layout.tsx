@@ -108,15 +108,25 @@ export function Layout({ children, role = 'student' }: LayoutProps) {
             </div>
           )}
 
-          <div className={styles.userCard} onClick={() => navigate('/profile')}>
-            <div className={styles.avatar}>S</div>
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>Sarah Jenkins</span>
-              <span className={styles.userRole}>
-                {accountType === 'both' ? 'Dual Account' : (currentRole === 'student' ? 'Level 4 Student' : 'Instructor')}
-              </span>
-            </div>
-          </div>
+          {(() => {
+            const displayName = profile.full_name?.trim() || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.email?.split('@')[0] || 'Musician';
+            const initials = displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'M';
+            return (
+              <div className={styles.userCard} onClick={() => navigate('/profile')}>
+                {profile.avatarUrl ? (
+                  <img src={profile.avatarUrl} alt="Avatar" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <div className={styles.avatar}>{initials}</div>
+                )}
+                <div className={styles.userInfo}>
+                  <span className={styles.userName}>{displayName}</span>
+                  <span className={styles.userRole}>
+                    {accountType === 'both' ? 'Dual Account' : (currentRole === 'student' ? 'Student' : 'Instructor')}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </aside>
       

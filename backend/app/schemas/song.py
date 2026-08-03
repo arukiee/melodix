@@ -1,94 +1,67 @@
-# backend/app/schemas/song.py
-"""Pydantic schemas for the core Song entity.
-These schemas map directly to the `Song` SQLAlchemy model and its related
-objects via `from_attributes=True` for seamless ORM serialization.
-"""
-
-from __future__ import annotations
-
+from typing import Optional, List, Dict, Any
 from datetime import datetime
-from typing import List, Optional
+from pydantic import BaseModel, ConfigDict
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
-
-# Base class with common config
-class SongBase(BaseModel):
+class SongSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
-    id: int
+
+    id: UUID
     title: str
-    subtitle: Optional[str] = None
-    arranger: Optional[str] = None
-    copyright: Optional[str] = None
-    difficulty_override: Optional[int] = None
-    thumbnail_uri: Optional[str] = None
-    preview_audio_uri: Optional[str] = None
-    lyrics_available: Optional[bool] = None
-    is_public: Optional[bool] = None
-    created_by: Optional[int] = None
-    instrument_id: Optional[int] = None
-    genre_id: Optional[int] = None
-    language_id: Optional[int] = None
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: Optional[datetime] = None
-    published_at: Optional[datetime] = None
+    composer: Optional[str] = None
+    artist: Optional[str] = None
+    genre: Optional[str] = None
+    difficulty: Optional[str] = "Beginner"
+    bpm: Optional[int] = 120
+    key_signature: Optional[str] = "C Major"
+    time_signature: Optional[str] = "4/4"
+    duration: Optional[int] = 180 # in seconds
+    source_type: Optional[str] = "MIDI"
+    file_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+
+    # Curriculum ↔ Song System Metadata (Default fallbacks for Null rows)
+    educational_category: Optional[str] = "Beginner Foundation"
+    learning_objectives: Optional[List[str]] = []
+    skills_required: Optional[List[str]] = []
+    skills_reinforced: Optional[List[str]] = []
+    prerequisite_lesson_slugs: Optional[List[str]] = []
+    mastery_threshold_percentage: Optional[float] = 85.0
+    ai_coaching_focus: Optional[Dict[str, Any]] = {}
+    teacher_notes: Optional[str] = None
+
+    created_at: Optional[datetime] = None
 
 class SongCreate(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     title: str
-    subtitle: Optional[str] = None
-    arranger: Optional[str] = None
-    copyright: Optional[str] = None
-    instrument_id: Optional[int] = None
-    genre_id: Optional[int] = None
-    language_id: Optional[int] = None
-    difficulty_override: Optional[int] = None
-    thumbnail_uri: Optional[str] = None
-    preview_audio_uri: Optional[str] = None
-    lyrics_available: Optional[bool] = None
-    is_public: Optional[bool] = False
-    created_by: Optional[int] = None
-    published_at: Optional[datetime] = None
+    composer: Optional[str] = None
+    artist: Optional[str] = None
+    genre: Optional[str] = None
+    difficulty: Optional[str] = "Beginner"
+    bpm: Optional[int] = 120
+    key_signature: Optional[str] = "C Major"
+    time_signature: Optional[str] = "4/4"
+    duration: Optional[int] = 180
+    source_type: Optional[str] = "MIDI"
+    file_url: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    educational_category: Optional[str] = "Beginner Foundation"
+    learning_objectives: Optional[List[str]] = []
+    skills_required: Optional[List[str]] = []
+    skills_reinforced: Optional[List[str]] = []
+    prerequisite_lesson_slugs: Optional[List[str]] = []
+    mastery_threshold_percentage: Optional[float] = 85.0
+    ai_coaching_focus: Optional[Dict[str, Any]] = {}
+    teacher_notes: Optional[str] = None
 
 class SongUpdate(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
     title: Optional[str] = None
-    subtitle: Optional[str] = None
-    arranger: Optional[str] = None
-    copyright: Optional[str] = None
-    instrument_id: Optional[int] = None
-    genre_id: Optional[int] = None
-    language_id: Optional[int] = None
-    difficulty_override: Optional[int] = None
-    thumbnail_uri: Optional[str] = None
-    preview_audio_uri: Optional[str] = None
-    lyrics_available: Optional[bool] = None
-    is_public: Optional[bool] = None
-    published_at: Optional[datetime] = None
-    deleted_at: Optional[datetime] = None
+    composer: Optional[str] = None
+    artist: Optional[str] = None
+    genre: Optional[str] = None
+    difficulty: Optional[str] = None
+    bpm: Optional[int] = None
+    educational_category: Optional[str] = None
 
-class SongSummary(SongBase):
-    """Lightweight representation used in list views."""
-    pass
-
-class SongDetail(SongBase):
-    """Full representation including related collections.
-    The nested collections are defined in their own schema modules and
-    imported here to avoid circular imports.
-    """
-    files: List["SongFileDetail"] = []
-    difficulty: Optional["SongDifficultyDetail"] = None
-    techniques: List["SongTechniqueDetail"] = []
-    skills: List["SkillDetail"] = []
-    events: List["SongEventDetail"] = []
-    ground_truth_meta: Optional["SongGroundTruthMetaDetail"] = None
-    analytics: Optional["SongAnalyticsDetail"] = None
-
-# Forward references for type checking
-from .song_file import SongFileDetail
-from .song_difficulty import SongDifficultyDetail
-from .song_technique import SongTechniqueDetail
-from .song_skill import SkillDetail
-from .song_event import SongEventDetail
-from .song_ground_truth import SongGroundTruthMetaDetail
-from .song_analytics import SongAnalyticsDetail
+SongDetail = SongSchema
+SongSummary = SongSchema

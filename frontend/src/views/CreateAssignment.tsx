@@ -1,12 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { apiClient } from '../api/client';
 import styles from './CreateAssignment.module.css';
 
 type Step = 'form' | 'processing' | 'success';
+
+interface StudentOption {
+  id: string;
+  name: string;
+}
 
 export function CreateAssignment() {
   const navigate = useNavigate();
@@ -15,23 +21,56 @@ export function CreateAssignment() {
 
   // Form State
   const [title, setTitle] = useState('');
-  const [target, setTarget] = useState('Sarah Jenkins');
+  const [targetStudentId, setTargetStudentId] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(true);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const { data } = await apiClient.get('/social/friends');
+        const formatted = data.map((f: any) => ({
+          id: f.friend.id,
+          name: f.friend.full_name || f.friend.email
+        }));
+        setStudents(formatted);
+        if (formatted.length > 0) {
+          setTargetStudentId(formatted[0].id);
+        }
+      } catch (err) {
+        console.error('Failed to fetch students/friends:', err);
+      } finally {
+        setIsLoadingStudents(false);
+      }
+    };
+    fetchStudents();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !target || !dueDate) {
+    if (!title.trim() || !dueDate) {
       setError('Please fill out all required fields.');
       return;
     }
     setError('');
     setStep('processing');
     
-    // Simulate Network Request
-    setTimeout(() => {
+    try {
+      await apiClient.post('/lessons', {
+        title: title.trim(),
+        description: instructions.trim() || `Due on ${dueDate}`,
+        category: 'Assignment',
+        difficulty: 'BEGINNER',
+        estimated_duration: 20,
+        is_published: true
+      });
       setStep('success');
-    }, 2000);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to create assignment');
+      setStep('form');
+    }
   };
 
   return (
@@ -56,7 +95,7 @@ export function CreateAssignment() {
             <div className={styles.formGroup}>
               <Input 
                 label="Assignment Title" 
-                placeholder="e.g. C Major Scale Practice"
+                placeholder="e.g. Moonlight Sonata Practice - Measure 1-15"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -65,18 +104,20 @@ export function CreateAssignment() {
 
             <div className={styles.formGrid}>
               <div className={styles.inputGroup}>
-                <label className={styles.label}>Assign To (Student or Class)</label>
-                <select className={styles.select} value={target} onChange={(e) => setTarget(e.target.value)}>
-                  <optgroup label="Students">
-                    <option>Sarah Jenkins</option>
-                    <option>Michael Chen</option>
-                    <option>David Miller</option>
-                  </optgroup>
-                  <optgroup label="Classes">
-                    <option>Beginner Piano</option>
-                    <option>Intermediate Piano</option>
-                  </optgroup>
-                </select>
+                <label className={styles.label}>Assign To (Student)</label>
+                {isLoadingStudents ? (
+                  <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Loading roster...</div>
+                ) : students.length === 0 ? (
+                  <select className={styles.select} disabled>
+                    <option>No active friends/students found</option>
+                  </select>
+                ) : (
+                  <select className={styles.select} value={targetStudentId} onChange={(e) => setTargetStudentId(e.target.value)}>
+                    {students.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <Input 
@@ -98,36 +139,31 @@ export function CreateAssignment() {
               />
             </div>
 
-            <div className={styles.footer}>
-              <Button variant="ghost" type="button" onClick={() => navigate(-1)}>Cancel</Button>
-              <Button variant="primary" type="submit">Create Assignment</Button>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+              <Button type="button" variant="ghost" onClick={() => navigate(-1)}>Cancel</Button>
+              <Button type="submit" variant="primary">Create & Send</Button>
             </div>
           </motion.form>
         )}
 
         {step === 'processing' && (
-          <motion.div className={styles.processingState} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <Loader2 size={48} className={styles.spinner} color="var(--accent-primary)" />
-            <h2 className={styles.stepTitle}>Assigning Lesson...</h2>
-            <p className={styles.mutedText}>Notifying students and updating their dashboards.</p>
-          </motion.div>
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <Loader2 size={48} className="spin" color="var(--accent-primary)" />
+            <h2 style={{ marginTop: '16px', fontSize: '18px' }}>Creating assignment...</h2>
+          </div>
         )}
 
         {step === 'success' && (
-          <motion.div className={styles.successState} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
-            <CheckCircle size={64} color="var(--status-success)" style={{ marginBottom: '16px' }} />
-            <h2 className={styles.stepTitle}>Assignment Created!</h2>
-            <p className={styles.mutedText}>"{title}" has been successfully assigned to {target}.</p>
-            <div className={styles.successActions}>
-              <Button variant="secondary" onClick={() => {
-                setTitle('');
-                setDueDate('');
-                setInstructions('');
-                setStep('form');
-              }}>Assign Another</Button>
-              <Button variant="primary" onClick={() => navigate('/teacher/assignments')}>Back to Assignments</Button>
-            </div>
-          </motion.div>
+          <div style={{ textAlign: 'center', padding: '48px 0' }}>
+            <CheckCircle size={56} color="var(--status-success)" style={{ marginBottom: '16px' }} />
+            <h2 style={{ fontSize: '24px', fontWeight: 600 }}>Assignment Created!</h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '8px', marginBottom: '24px' }}>
+              The assignment has been successfully saved and sent.
+            </p>
+            <Button variant="primary" onClick={() => navigate('/teacher')}>
+              Return to Teacher Dashboard
+            </Button>
+          </div>
         )}
       </div>
     </div>

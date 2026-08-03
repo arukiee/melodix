@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-from backend.app.models.songs import FileTypeEnum, StatusEnum, ProcessingStateEnum
+from app.models.songs import FileTypeEnum, StatusEnum, ProcessingStateEnum
 
 class SongFileBase(BaseModel):
     model_config = ConfigDict(from_attributes=True, orm_mode=True)
@@ -31,8 +31,8 @@ class SongFileCreate(BaseModel):
     uri: str
     is_primary: bool = False
     version: int = 1
-    status: StatusEnum = StatusEnum.PENDING
-    processing_state: ProcessingStateEnum = ProcessingStateEnum.NOT_STARTED
+    status: StatusEnum = StatusEnum.ACTIVE
+    processing_state: ProcessingStateEnum = ProcessingStateEnum.PENDING
 
 class SongFileUpdate(BaseModel):
     model_config = ConfigDict(from_attributes=True, orm_mode=True)

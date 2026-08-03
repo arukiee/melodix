@@ -3,10 +3,7 @@
 Exports concrete service classes for easy import.
 """
 
-from .song import SongService
+# Import only the services that actually exist in the codebase.
+from .auth_service import AuthService
 from .file import FileService
-from .event import EventService
-from .difficulty import DifficultyService
-from .technique import TechniqueService
-from .skill import SkillService
-from .analytics import AnalyticsService
+from .song import SongService

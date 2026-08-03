@@ -1,4 +1,5 @@
-import { Play, Pause, SkipBack, SkipForward, Repeat, Activity, Volume2 } from 'lucide-react';
+import { useState } from 'react';
+import { Play, Pause, SkipBack, SkipForward, Repeat, Activity, Mic, MicOff } from 'lucide-react';
 import styles from './TransportBar.module.css';
 
 interface TransportBarProps {
@@ -8,6 +9,21 @@ interface TransportBarProps {
 }
 
 export function TransportBar({ onEndSession, isPlaying, onTogglePlay }: TransportBarProps) {
+  const [isRecording, setIsRecording] = useState(false);
+
+  const toggleRecording = async () => {
+    if (!isRecording) {
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        setIsRecording(true);
+      } catch (err) {
+        alert("Microphone access is required for practice recording and AI feedback.");
+      }
+    } else {
+      setIsRecording(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.leftGroup}>
@@ -31,6 +47,15 @@ export function TransportBar({ onEndSession, isPlaying, onTogglePlay }: Transpor
       </div>
 
       <div className={styles.rightGroup}>
+        <button 
+          className={`${styles.iconBtn} ${isRecording ? styles.active : ''}`} 
+          onClick={toggleRecording}
+          aria-label="Microphone"
+          title={isRecording ? "Recording active" : "Enable microphone"}
+          style={isRecording ? { color: 'var(--status-error)' } : {}}
+        >
+          {isRecording ? <Mic size={20} /> : <MicOff size={20} />}
+        </button>
         <button className={`${styles.iconBtn} ${styles.active}`} aria-label="Loop">
           <Repeat size={20} />
         </button>

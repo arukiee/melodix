@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { apiClient } from '../api/client';
 
 export type AccountType = 'student' | 'teacher' | 'both';
@@ -68,6 +68,8 @@ interface UserContextType {
   profile: UserProfile;
   isAuthenticated: boolean;
   isLoading: boolean;
+  completedLessons: number;
+  incrementLessons: () => void;
   login: (accessToken: string, refreshToken: string) => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
@@ -86,6 +88,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile>(defaultProfile);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [completedLessons, setCompletedLessons] = useState<number>(0);
+
+  const incrementLessons = () => setCompletedLessons(prev => prev + 1);
 
   const fetchUser = async () => {
     try {
@@ -200,7 +205,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await apiClient.post('/users/complete-onboarding', {
         skill_level: preferences.pianoExperience,
         preferred_instrument: preferences.defaultInstrument,
-        daily_practice_goal: parseInt(preferences.dailyPracticeGoal) || 30,
+        daily_practice_goal: parseInt(String(preferences.dailyPracticeGoal || '').replace(/\D/g, '')) || 30,
         preferred_genres: preferences.favoriteGenres,
       });
       updateProfile({
@@ -230,6 +235,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         profile, 
         isAuthenticated,
         isLoading,
+        completedLessons,
+        incrementLessons,
         login,
         logout,
         updateProfile,

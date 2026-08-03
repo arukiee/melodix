@@ -1,90 +1,62 @@
-import { useState } from 'react';
-import { Search, ArrowLeft, Clock, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, ArrowLeft, Clock, Music, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
+import { apiClient } from '../api/client';
 import styles from './Library.module.css';
 
-const mockLibrary = [
-  { 
-    id: '1', title: 'Clair de Lune', composer: 'Claude Debussy', difficulty: 'Advanced', 
-    duration: '15 min', progress: 85, lastPracticed: 'Yesterday', category: 'continue', type: 'built-in' 
-  },
-  { 
-    id: '2', title: 'Minuet in G Major', composer: 'J.S. Bach', difficulty: 'Beginner', 
-    duration: '5 min', progress: 100, lastPracticed: '1 week ago', category: 'favorites', type: 'built-in' 
-  },
-  { 
-    id: '3', title: 'Nocturne Op. 9 No. 2', composer: 'Frédéric Chopin', difficulty: 'Intermediate', 
-    duration: '12 min', progress: 30, lastPracticed: '2 days ago', category: 'continue', type: 'built-in' 
-  },
-  { 
-    id: '4', title: 'Hanon Exercise No. 1', composer: 'Charles-Louis Hanon', difficulty: 'Beginner', 
-    duration: '10 min', progress: 0, lastPracticed: 'Never', category: 'exercises', type: 'built-in' 
-  },
-  { 
-    id: '5', title: 'My Custom Arrangement', composer: 'Me', difficulty: 'Intermediate', 
-    duration: '4 min', progress: 10, lastPracticed: '3 days ago', category: 'uploads', type: 'ai-generated' 
-  },
-];
+interface SongItem {
+  id: string;
+  title: string;
+  composer?: string;
+  artist?: string;
+  genre?: string;
+  difficulty?: string;
+  bpm?: number;
+  duration?: number; // in seconds
+  file_url?: string;
+  thumbnail_url?: string;
+}
 
 export function Library() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [songs, setSongs] = useState<SongItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const continueLearning = mockLibrary.filter(s => s.category === 'continue' || (s.progress > 0 && s.progress < 100));
-  const myUploads = mockLibrary.filter(s => s.category === 'uploads');
-  const teacherAssignments = mockLibrary.filter(s => s.category === 'assignments'); // Empty for demo
-  const favorites = mockLibrary.filter(s => s.category === 'favorites');
-  const exercises = mockLibrary.filter(s => s.category === 'exercises');
+  const fetchSongs = async (query = '', difficultyFilter = 'All') => {
+    setIsLoading(true);
+    try {
+      const params: Record<string, string> = {};
+      if (query.trim()) params.q = query.trim();
+      if (difficultyFilter !== 'All' && difficultyFilter !== 'My Uploads' && difficultyFilter !== 'Favorites') {
+        params.difficulty = difficultyFilter;
+      }
+      const { data } = await apiClient.get('/songs', { params });
+      setSongs(data);
+    } catch (err) {
+      console.error('Failed to fetch songs:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  const renderSection = (title: string, songs: typeof mockLibrary) => {
-    if (songs.length === 0) return null;
-    return (
-      <div className={styles.categorySection}>
-        <h2 className={styles.categoryTitle}>{title}</h2>
-        <div className={styles.grid}>
-          {songs.map((song) => (
-            <div 
-              key={song.id} 
-              className={styles.songCard} 
-              onClick={() => navigate(`/song/${song.id}`)}
-            >
-              <div className={styles.cardHeader}>
-                <div>
-                  <h3 className={styles.songTitle}>{song.title}</h3>
-                  <p className={styles.composer}>{song.composer}</p>
-                </div>
-                <span className={styles.badge}>{song.difficulty}</span>
-              </div>
-              
-              <div className={styles.cardMeta}>
-                <div className={styles.metaItem}>
-                  <Clock size={14} />
-                  <span>{song.duration}</span>
-                </div>
-                <div className={styles.metaItem}>
-                  <Calendar size={14} />
-                  <span>{song.lastPracticed}</span>
-                </div>
-                <div className={styles.metaItem}>
-                  <span className={styles.badge}>{song.type === 'ai-generated' ? 'AI Generated' : 'Built-in'}</span>
-                </div>
-              </div>
+  useEffect(() => {
+    fetchSongs('', filter);
+  }, [filter]);
 
-              <div className={styles.progressContainer}>
-                <div className={styles.progressBar}>
-                  <div className={styles.progressFill} style={{ width: `${song.progress}%` }} />
-                </div>
-                <div className={styles.progressLabel}>
-                  <span>{song.progress > 0 ? 'Continue Practice' : 'Start Practice'}</span>
-                  <span>{song.progress}%</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSongs(searchQuery, filter);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '3 min';
+    const mins = Math.floor(seconds / 60);
+    return `${mins} min`;
   };
 
   return (
@@ -102,30 +74,78 @@ export function Library() {
             <input 
               type="text" 
               className={styles.searchInput} 
-              placeholder="Search by title, composer, or genre..."
+              placeholder="Search catalog by title, composer, or genre..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <div className={styles.filters}>
-            <Button variant={filter === 'All' ? 'secondary' : 'ghost'} onClick={() => setFilter('All')} style={{ padding: '8px 16px', fontSize: '14px' }}>All</Button>
-            <Button variant={filter === 'Favorites' ? 'secondary' : 'ghost'} onClick={() => setFilter('Favorites')} style={{ padding: '8px 16px', fontSize: '14px' }}>Favorites</Button>
-            <Button variant={filter === 'My Uploads' ? 'secondary' : 'ghost'} onClick={() => setFilter('My Uploads')} style={{ padding: '8px 16px', fontSize: '14px' }}>My Uploads</Button>
-            <Button variant={filter === 'Exercises' ? 'secondary' : 'ghost'} onClick={() => setFilter('Exercises')} style={{ padding: '8px 16px', fontSize: '14px' }}>Exercises</Button>
+            {['All', 'Beginner', 'Intermediate', 'Advanced'].map((diff) => (
+              <Button 
+                key={diff}
+                variant={filter === diff ? 'secondary' : 'ghost'} 
+                onClick={() => setFilter(diff)} 
+                style={{ padding: '8px 16px', fontSize: '14px' }}
+              >
+                {diff}
+              </Button>
+            ))}
           </div>
         </div>
       </header>
 
-      {mockLibrary.length === 0 ? (
+      {isLoading ? (
+        <div style={{ textAlign: 'center', padding: '64px 0' }}>
+          <Loader2 size={36} className="spin" color="var(--accent-primary)" />
+          <p style={{ marginTop: '16px', color: 'var(--text-secondary)' }}>Loading catalog pieces...</p>
+        </div>
+      ) : songs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text-secondary)' }}>
-          <p>No songs yet. Upload your first song or explore the built-in library.</p>
+          <Music size={48} color="var(--text-muted)" style={{ marginBottom: '16px' }} />
+          <h3>No songs found</h3>
+          <p>{searchQuery ? `No catalog pieces matched "${searchQuery}".` : 'No catalog pieces available.'}</p>
         </div>
       ) : (
-        <>
-          {renderSection('Continue Learning', continueLearning)}
-          {renderSection('My Uploads', myUploads)}
-          {renderSection('Teacher Assignments', teacherAssignments)}
-          {renderSection('Favorites', favorites)}
-          {renderSection('Exercises', exercises)}
-        </>
+        <div className={styles.categorySection}>
+          <h2 className={styles.categoryTitle}>Catalog Pieces ({songs.length})</h2>
+          <div className={styles.grid}>
+            {songs.map((song) => (
+              <div 
+                key={song.id} 
+                className={styles.songCard} 
+                onClick={() => navigate(`/song/${song.id}`)}
+              >
+                <div className={styles.cardHeader}>
+                  <div>
+                    <h3 className={styles.songTitle}>{song.title}</h3>
+                    <p className={styles.composer}>{song.composer || song.artist || 'Classical'}</p>
+                  </div>
+                  <span className={styles.badge}>{song.difficulty || 'Beginner'}</span>
+                </div>
+                
+                <div className={styles.cardMeta}>
+                  <div className={styles.metaItem}>
+                    <Clock size={14} />
+                    <span>{formatDuration(song.duration)}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <span className={styles.badge}>{song.genre || 'Piano'}</span>
+                  </div>
+                </div>
+
+                <div className={styles.progressContainer}>
+                  <div className={styles.progressBar}>
+                    <div className={styles.progressFill} style={{ width: '0%' }} />
+                  </div>
+                  <div className={styles.progressLabel}>
+                    <span>Start Practice</span>
+                    <span>Ready</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -67,7 +67,7 @@ function AppRoutes() {
       <Route path="/progress" element={<ProtectedRoute><Layout role="student"><Progress /></Layout></ProtectedRoute>} />
       <Route path="/friends" element={<ProtectedRoute><Layout role="student"><Friends /></Layout></ProtectedRoute>} />
       <Route path="/leaderboards" element={<ProtectedRoute><Layout role="student"><Leaderboards /></Layout></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Layout role={activeRole || 'student'}><Profile /></Layout></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Layout role={activeRole === 'teacher' ? 'teacher' : 'student'}><Profile /></Layout></ProtectedRoute>} />
       <Route path="/song/:songId" element={<ProtectedRoute><Layout role="student"><SongDetails /></Layout></ProtectedRoute>} />
       <Route path="/upload" element={<ProtectedRoute><Layout role="student"><Upload /></Layout></ProtectedRoute>} />
       

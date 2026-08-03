@@ -338,7 +338,7 @@ class SongFile(Base, TimestampMixin):
     song: Mapped[Song] = relationship("Song", back_populates="files")
 
     __table_args__ = (
-        UniqueConstraint("song_id", "file_type", name="uq_song_file_primary", condition=text("is_primary")),
+        Index("uq_song_file_primary", "song_id", "file_type", unique=True, postgresql_where=text("is_primary")),
     )
 
     def __repr__(self) -> str:

@@ -2,10 +2,12 @@ fastapi
 uvicorn
 sqlalchemy
 alembic
+psycopg[binary]
 psycopg2-binary
 pydantic
 python-jose
 passlib[bcrypt]
+bcrypt==4.0.1
 python-dotenv
 email-validator
 python-multipart
@@ -16,3 +18,5 @@ pytest
 minio
 redis>=5.0,<6.0
 celery>=5.4,<5.5
+google-auth
+requests

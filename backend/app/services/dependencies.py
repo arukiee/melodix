@@ -6,39 +6,18 @@ so routers stay thin and testable.
 """
 
 from sqlalchemy.orm import Session
+from fastapi import Depends
+from app.core.database import get_db
 
 from .song import SongService
 from .file import FileService
-from .event import EventService
-from .difficulty import DifficultyService
-from .technique import TechniqueService
-from .skill import SkillService
-from .analytics import AnalyticsService
-
+from .auth_service import AuthService
 
 def get_song_service(db: Session) -> SongService:
     return SongService(db)
 
-
 def get_file_service(db: Session) -> FileService:
     return FileService(db)
 
-
-def get_event_service(db: Session) -> EventService:
-    return EventService(db)
-
-
-def get_difficulty_service(db: Session) -> DifficultyService:
-    return DifficultyService(db)
-
-
-def get_technique_service(db: Session) -> TechniqueService:
-    return TechniqueService(db)
-
-
-def get_skill_service(db: Session) -> SkillService:
-    return SkillService(db)
-
-
-def get_analytics_service(db: Session) -> AnalyticsService:
-    return AnalyticsService(db)
+def get_auth_service(db: Session = Depends(get_db)) -> AuthService:
+    return AuthService(db)

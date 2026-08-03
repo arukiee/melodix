@@ -1,0 +1,107 @@
+"""Auth service for Google OAuth and JWT handling.
+
+The service isolates all external calls (Google token verification) and
+business logic (user lookup/creation, JWT generation). It receives a
+configured ``AuthConfig`` instance and a ``Session`` factory so that it
+can be used both in the FastAPI router and in unit tests.
+"""
+
+from typing import Dict
+
+import logging
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
+from sqlalchemy.orm import Session
+
+from app.core.config import settings
+from app.core.security import create_access_token, create_refresh_token
+from app.models.user import User
+from app.models.profile import Profile
+from app.schemas.token import Token
+from fastapi import HTTPException, status
+
+
+class AuthService:
+    """Encapsulates Google OAuth flow and JWT creation.
+
+    The service is deliberately thin – it does not depend on FastAPI
+    request objects, making it easy to unit‑test.
+    """
+
+    def __init__(self, db: Session):
+        self.db = db
+        self.cfg = settings.auth_config
+
+    def verify_google_token(self, credential: str) -> Dict:
+        """Verify the Google credential and return the token payload.
+
+        Raises ``HTTPException`` with status 400 if verification fails.
+        """
+        try:
+            token_info = id_token.verify_oauth2_token(
+                credential,
+                requests.Request(),
+                self.cfg.GOOGLE_CLIENT_ID,
+            )
+        except ValueError as exc:
+            logging.error(
+                "Google token verification failed for client_id=%s: %s",
+                self.cfg.GOOGLE_CLIENT_ID,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid Google token: {exc}",
+            )
+        except Exception as exc:  # pragma: no cover – unexpected errors
+            logging.error("Unexpected error during Google authentication: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Google authentication failed",
+            )
+        return token_info
+
+    def _get_or_create_user(self, email: str, name: str, picture: str) -> User:
+        user = self.db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(
+                email=email,
+                full_name=name,
+                avatar_url=picture,
+                auth_provider="GOOGLE",
+                role="STUDENT",
+                onboarding_completed=False,
+            )
+            self.db.add(user)
+            self.db.commit()
+            self.db.refresh(user)
+            profile = Profile(user_id=user.id)
+            self.db.add(profile)
+            self.db.commit()
+            self.db.refresh(profile)
+        else:
+            if user.auth_provider == "EMAIL":
+                user.auth_provider = "GOOGLE"
+            if not user.profile:
+                profile = Profile(user_id=user.id)
+                self.db.add(profile)
+                self.db.commit()
+        return user
+
+    def google_login(self, credential: str) -> Token:
+        token_info = self.verify_google_token(credential)
+        email = token_info.get("email")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not found in Google token",
+            )
+        name = token_info.get("name", "Google User")
+        picture = token_info.get("picture")
+        user = self._get_or_create_user(email, name, picture)
+        return Token(
+            access_token=create_access_token(user.id, user.role),
+            refresh_token=create_refresh_token(user.id),
+            token_type="bearer",
+        )

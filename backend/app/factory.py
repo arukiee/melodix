@@ -1,18 +1,39 @@
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import logging
 
-from .core.exceptions import register_exception_handlers
-from .config.settings import settings
-from .storage.minio_service import StorageService
-from .api.v1.router import router as api_v1_router
+from app.core.config import settings
+from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.logging_middleware import StructuredLoggingMiddleware
+from app.api.v1.health import router as health_router
+from app.api.auth import router as auth_router
+from app.api.users import router as users_router
+from app.api.social import router as social_router
+from app.api.songs import router as songs_router
+from app.api.lessons import router as lessons_router
+from app.api.ai import router as ai_router
+from app.api.curriculum import router as curriculum_router
 
+logger = logging.getLogger("melodix.factory")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Initializing Melodix application lifespan...")
+    yield
+    logger.info("Shutting down Melodix application lifespan...")
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    app = FastAPI(title="Melodix API", version="0.1.0")
+    app = FastAPI(
+        title=settings.PROJECT_NAME,
+        version=settings.VERSION,
+        lifespan=lifespan
+    )
 
-    # CORS – allow all origins for development (restrict in production)
+    # Add Middleware
+    app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(StructuredLoggingMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -21,25 +42,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Register global exception handlers
-    register_exception_handlers(app)
-
-    # Include versioned API router
-    app.include_router(api_v1_router)
-    from app.routers.celery_router import router as celery_router
-    app.include_router(celery_router)
-
-    @app.on_event("startup")
-    async def on_startup() -> None:
-        try:
-            StorageService()
-        except Exception as exc:
-            logging.error("MinIO connection failed during startup: %s", exc)
-            raise RuntimeError("MinIO connection unavailable") from exc
-
-    @app.on_event("shutdown")
-    async def on_shutdown() -> None:
-        # Placeholder for cleanup logic
-        pass
+    # Include Routers
+    app.include_router(health_router)
+    app.include_router(auth_router)
+    app.include_router(users_router)
+    app.include_router(social_router)
+    app.include_router(songs_router)
+    app.include_router(lessons_router)
+    app.include_router(ai_router)
+    app.include_router(curriculum_router)
 
     return app
+

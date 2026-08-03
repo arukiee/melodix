@@ -1,7 +1,7 @@
 
-import { useState, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Settings, Shield, Bell, Check, Edit2, LogOut, Trash2, Camera, Link as LinkIcon, Music, Target, Clock, MonitorPlay, Activity } from 'lucide-react';
+import { User, Settings, Shield, Bell, Check, Edit2, LogOut, Trash2, Camera, Link as LinkIcon, Music, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -16,12 +16,21 @@ export function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Temporary edit state
   const [editForm, setEditForm] = useState({
-    firstName: profile.firstName,
-    lastName: profile.lastName,
-    email: profile.email,
+    firstName: profile.firstName || profile.full_name?.split(' ')[0] || '',
+    lastName: profile.lastName || profile.full_name?.split(' ').slice(1).join(' ') || '',
+    email: profile.email || '',
   });
+
+  useEffect(() => {
+    setEditForm({
+      firstName: profile.firstName || profile.full_name?.split(' ')[0] || '',
+      lastName: profile.lastName || profile.full_name?.split(' ').slice(1).join(' ') || '',
+      email: profile.email || '',
+    });
+  }, [profile.firstName, profile.lastName, profile.full_name, profile.email]);
+
+  const displayName = profile.full_name?.trim() || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.email?.split('@')[0] || 'User';
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
@@ -31,10 +40,13 @@ export function Profile() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        updateProfile({ avatarUrl: event.target?.result as string });
-        // In a real app we'd use a toast system here
-        alert("Profile photo updated.");
+      reader.onload = async (event) => {
+        const newAvatarUrl = event.target?.result as string;
+        try {
+          await saveUserInfo(displayName, newAvatarUrl);
+        } catch {
+          updateProfile({ avatarUrl: newAvatarUrl });
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -67,7 +79,6 @@ export function Profile() {
 
   const handleResetProgress = () => {
     if (confirm("Are you sure you want to reset all learning progress? This cannot be undone.")) {
-      // Future-ready placeholder
       alert("Progress reset simulated.");
     }
   };
@@ -80,8 +91,7 @@ export function Profile() {
   };
 
   const getInitials = () => {
-    if (profile.firstName) return `${profile.firstName[0]}${profile.lastName?.[0] || ''}`.toUpperCase();
-    return 'U';
+    return displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
   };
 
   const displayRole = profile.accountType === 'both' ? 'Dual Account (Student & Teacher)' : 
@@ -116,7 +126,7 @@ export function Profile() {
           />
         </div>
         <div className={styles.userInfo}>
-          <h1 className={styles.name}>{profile.firstName} {profile.lastName}</h1>
+          <h1 className={styles.name}>{displayName}</h1>
           <div className={styles.roleBadge}>{displayRole}</div>
           <p className={styles.email}>{profile.email}</p>
         </div>
