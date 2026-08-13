@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ArrowRight, Check, Loader2, Sparkles, BookOpen, Music, Target } from 'lucide-react';
 import { Button } from '../components/Button';
+import { instrumentsApi, type Instrument } from '../api/instruments';
 import type { AccountType } from '../context/UserContext';
 import { useUser } from '../context/UserContext';
 import styles from './Onboarding.module.css';
@@ -36,10 +37,32 @@ export function Onboarding() {
   const [genres, setGenres] = useState<string[]>([]);
   const [practiceTime, setPracticeTime] = useState<string | null>(null);
   const [instrument, setInstrument] = useState<string | null>(null);
+  const [instruments, setInstruments] = useState<Instrument[]>([]);
   const [takeAssessment, setTakeAssessment] = useState<boolean | null>(null);
 
   // Loading animation state
   const [loadingStep, setLoadingStep] = useState(0);
+
+  // Fetch instruments from backend when component mounts, with fallback
+  useEffect(() => {
+    const defaultInstruments: Instrument[] = [
+      { id: 'piano', name: 'Grand Piano' },
+      { id: 'upright', name: 'Upright Piano' },
+      { id: 'digital', name: 'Digital Piano' },
+      { id: 'keyboard', name: 'MIDI Keyboard' },
+      { id: 'synth', name: 'Synthesizer' },
+    ];
+    const fetchInstruments = async () => {
+      try {
+        const data = await instrumentsApi.getInstruments();
+        setInstruments(data.length > 0 ? data : defaultInstruments);
+      } catch (err) {
+        console.warn('Instruments API unavailable, using defaults', err);
+        setInstruments(defaultInstruments);
+      }
+    };
+    fetchInstruments();
+  }, []);
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
@@ -239,9 +262,12 @@ export function Onboarding() {
   };
 
   const renderInstrument = () => {
-    const studentInstruments = ['MIDI Keyboard', 'Digital Piano', 'Acoustic Piano', 'GarageBand', 'Virtual Keyboard'];
-    const teacherSetup = ['Grand / Upright Piano', 'MIDI Controller & DAW', 'Digital Piano', 'Tablet & Audio Interface'];
-    const options = isTeacher ? teacherSetup : studentInstruments;
+    // Determine which instruments to show based on role
+    const filtered = instruments.filter(inst => {
+      // For teachers, we could have a flag; assume all instruments are available for both for now
+      return true;
+    });
+    const options = isTeacher ? filtered : filtered;
 
     return (
       <motion.div
@@ -259,11 +285,11 @@ export function Onboarding() {
         <div className={styles.optionsGrid}>
           {options.map(inst => (
             <div 
-              key={inst}
-              className={`${styles.optionCard} ${instrument === inst ? styles.selected : ''}`}
-              onClick={() => setInstrument(inst)}
+              key={inst.id}
+              className={`${styles.optionCard} ${instrument === inst.name ? styles.selected : ''}`}
+              onClick={() => setInstrument(inst.name)}
             >
-              <div className={styles.optionTitle}>{inst}</div>
+              <div className={styles.optionTitle}>{inst.name}</div>
             </div>
           ))}
         </div>

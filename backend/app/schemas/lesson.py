@@ -8,6 +8,15 @@ class Objective(BaseModel):
     title: str
     description: Optional[str] = None
 
+class LessonStepSchema(BaseModel):
+    id: str
+    title: str
+    type: str
+    description: Optional[str] = None
+    measures: List[int] = []
+    completed: bool = False
+    locked: bool = False
+
 class LessonBase(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
@@ -18,6 +27,8 @@ class LessonBase(BaseModel):
     display_order: int = 0
     thumbnail_url: Optional[str] = Field(None, max_length=1024)
     objectives: List[Objective] = []
+    steps: List[LessonStepSchema] = []
+    adaptive_thresholds: dict = {}
     visibility: str = Field("PUBLIC", pattern="^(PUBLIC|PRIVATE)$")
 
 class LessonCreate(LessonBase):
@@ -35,6 +46,8 @@ class LessonUpdate(BaseModel):
     display_order: Optional[int] = None
     thumbnail_url: Optional[str] = Field(None, max_length=1024)
     objectives: Optional[List[Objective]] = None
+    steps: Optional[List[LessonStepSchema]] = None
+    adaptive_thresholds: Optional[dict] = None
     visibility: Optional[str] = Field(None, pattern="^(PUBLIC|PRIVATE)$")
     is_published: Optional[bool] = None
 

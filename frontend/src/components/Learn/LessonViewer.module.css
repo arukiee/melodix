@@ -1,0 +1,128 @@
+.container {
+  padding: 24px;
+  background-color: var(--bg-default);
+  color: var(--text-primary);
+}
+
+.title {
+  margin: 0 0 8px 0;
+  font-size: 1.8rem;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.stepper::before {
+  content: '';
+  position: absolute;
+  left: 28px;
+  top: 24px;
+  bottom: 24px;
+  width: 2px;
+  background-color: var(--border-color);
+  z-index: 0;
+}
+
+.stepCard {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  z-index: 1;
+  transition: all 0.2s;
+}
+
+.stepCard:not(.locked):hover {
+  border-color: var(--accent-primary);
+  transform: translateX(4px);
+}
+
+.stepHeader {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stepIconWrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  border: 2px solid #333;
+}
+
+.stepCard.completed .stepIconWrapper {
+  background-color: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+}
+
+.stepCard.locked .stepIconWrapper {
+  background-color: #111;
+  color: #555;
+}
+
+.stepInfo {
+  flex: 1;
+}
+
+.stepInfo h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+}
+
+.stepInfo p {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.measuresInfo {
+  font-size: 0.8rem;
+  color: var(--accent-primary);
+  font-weight: 500;
+}
+
+.stepAction {
+  padding-left: 16px;
+}
+
+.startBtn {
+  background-color: var(--accent-primary);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.startBtn:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.startBtn:disabled {
+  background-color: #333;
+  color: #666;
+  cursor: not-allowed;
+}
+
+.stepCard.locked {
+  opacity: 0.6;
+}

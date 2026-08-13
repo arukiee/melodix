@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Music, Home, Play, Compass, BarChart2, User, Users, FileText, ChevronDown, BookOpen, Layers, Search, Bell } from 'lucide-react';
+import { Music, Home, Play, Compass, BarChart2, User, Users, FileText, ChevronDown, BookOpen, Layers, Search, Bell, Settings } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import { AccessibilityPanel } from './AccessibilityPanel';
+import { MicMidiHUD } from './MicMidiHUD';
 import styles from './Layout.module.css';
 
 interface LayoutProps {
@@ -16,13 +18,15 @@ export function Layout({ children, role = 'student' }: LayoutProps) {
   const { accountType, activeRole } = profile;
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAccessibility, setShowAccessibility] = useState(false);
 
   // Fallback to prop if activeRole is null
   const currentRole = activeRole || role;
 
   const studentLinks = [
     { name: 'Home', path: '/dashboard', icon: <Home size={20} /> },
-    { name: 'Practice', path: '/studio/clair-de-lune', icon: <Play size={20} /> },
+    { name: 'Library', path: '/library', icon: <Music size={20} /> },
+    { name: 'Practice', path: '/learn', icon: <Play size={20} /> },
     { name: 'Learn', path: '/learn', icon: <Compass size={20} /> },
     { name: 'Progress', path: '/progress', icon: <BarChart2 size={20} /> },
     { name: 'Friends', path: '/friends', icon: <Users size={20} /> },
@@ -138,6 +142,9 @@ export function Layout({ children, role = 'student' }: LayoutProps) {
           </div>
           
           <div className={styles.topActions}>
+            <button className={styles.notificationBtn} onClick={() => setShowAccessibility(true)}>
+              <Settings size={20} />
+            </button>
             <button className={styles.notificationBtn} onClick={() => setShowNotifications(!showNotifications)}>
               <Bell size={20} />
               <span className={styles.notificationBadge}></span>
@@ -150,15 +157,24 @@ export function Layout({ children, role = 'student' }: LayoutProps) {
                   <span>Clair de Lune - Measure 15</span>
                 </div>
                 <div className={styles.notificationItem}>
-                  <p><strong>Michael beat your streak</strong></p>
-                  <span>14 days in a row!</span>
+                  <p><strong>New message from Instructor</strong></p>
+                  <span>Great progress on your timing!</span>
                 </div>
               </div>
             )}
           </div>
         </header>
-        {children}
+        
+        <div className={styles.pageContent}>
+          {children}
+        </div>
       </main>
+      
+      <AccessibilityPanel 
+        isOpen={showAccessibility} 
+        onClose={() => setShowAccessibility(false)} 
+      />
+      {currentRole === 'student' && <MicMidiHUD />}
     </div>
   );
 }

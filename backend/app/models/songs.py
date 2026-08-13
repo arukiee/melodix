@@ -13,6 +13,7 @@ The models closely follow the Alembic migration created in Step 1 and use type
 from __future__ import annotations
 
 import enum
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import (
@@ -56,10 +57,10 @@ class TimestampMixin:
     """
 
     created_at: Mapped[DateTime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+        DateTime(timezone=True), default=lambda: datetime.now(timezone), nullable=False, index=True
     )
     updated_at: Mapped[DateTime] = mapped_column(
-        DateTime(timezone=True), onupdate=func.now(), nullable=True, index=True
+        DateTime(timezone=True), default=lambda: datetime.now(timezone), onupdate=lambda: datetime.now(timezone), nullable=True, index=True
     )
 
 
@@ -332,7 +333,7 @@ class SongFile(Base, TimestampMixin):
         nullable=False,
         server_default=text("'PENDING'")
     )
-    uploaded_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    uploaded_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone))
     is_primary: Mapped[bool] = mapped_column(BOOLEAN, server_default=text("FALSE"))
 
     song: Mapped[Song] = relationship("Song", back_populates="files")

@@ -7,8 +7,131 @@ from sqlalchemy import or_, and_
 from app.core.database import get_db
 from app.models.song import Song
 from app.schemas.song import SongSchema, SongCreate, SongUpdate
+from app.services.provider_ultimate_guitar import ultimate_guitar_provider
+from app.services.provider_youtube import youtube_provider
 
 router = APIRouter(prefix="/songs", tags=["songs"])
+
+from app.schemas.search import SearchFilter, SearchResult
+from app.services.search.search_engine import search_engine
+
+@router.get("/search", response_model=List[SearchResult])
+async def search_songs(
+    q: str = Query(..., min_length=1), 
+    difficulty: Optional[str] = None,
+    genre: Optional[str] = None,
+    instrument: Optional[str] = None,
+    hasMidi: Optional[bool] = None,
+    hasChords: Optional[bool] = None,
+    beginnerFriendly: Optional[bool] = None,
+    limit: int = Query(10, ge=7, le=10),
+    db: Session = Depends(get_db)
+):
+    filters = SearchFilter(
+        difficulty=difficulty,
+        genre=genre,
+        instrument=instrument,
+        hasMidi=hasMidi,
+        hasChords=hasChords,
+        beginnerFriendly=beginnerFriendly,
+        limit=limit
+    )
+    
+    results = await search_engine.search(query=q, filters=filters, db=db)
+    return results
+
+from pydantic import BaseModel
+class ImportSearchRequest(BaseModel):
+    id: str
+    title: str
+    artist: str
+    provider: str
+
+from app.api.import_song import _run_pipeline
+from app.schemas.import_schema import ImportCommitResponse
+
+@router.post("/import_from_search", response_model=ImportCommitResponse)
+async def import_from_search(request: ImportSearchRequest, db: Session = Depends(get_db)):
+    if request.provider == "Local Library":
+        return ImportCommitResponse(
+            success=True, song_id=request.id,
+            message="Already in library."
+        )
+        
+    provider = search_engine.get_provider(request.provider)
+    if not provider:
+        raise HTTPException(status_code=400, detail="Unknown provider")
+        
+    # Fetch raw data
+    try:
+        raw_data = await provider.get_raw_data(request.id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch data: {str(e)}")
+        
+    # Run through the pipeline
+    # Route to correct importer by setting specific file extensions based on the search provider
+    if request.provider == "Ultimate Guitar":
+        filename = "chords.ug"
+    elif request.provider == "YouTube":
+        filename = "youtube.yt"
+    elif request.provider == "BitMidi":
+        filename = "song.mid"
+    else:
+        filename = "download.mid"
+
+    try:
+        parsed, warnings, chords, expected_events, missions, measure_count = _run_pipeline(
+            raw_data, filename
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+
+    # Check for existing song
+    existing = db.query(Song).filter(
+        Song.title == parsed.get("title", request.title),
+        Song.composer == parsed.get("composer", request.artist)
+    ).first()
+
+    if existing:
+        existing.bpm = parsed.get("bpm", 60)
+        existing.key_signature = parsed.get("key_signature")
+        existing.time_signature = parsed.get("time_signature")
+        existing.missions = missions
+        existing.sections = parsed.get("sections", [])
+        existing.steps = parsed.get("steps", [])
+        existing.adaptive_thresholds = parsed.get("adaptive_thresholds", {})
+        db.commit()
+        return ImportCommitResponse(
+            success=True, song_id=str(existing.id),
+            message=f"Updated existing song: {existing.title}"
+        )
+
+    new_song = Song(
+        title=parsed.get("title", request.title),
+        composer=parsed.get("composer", request.artist),
+        artist=request.artist,
+        difficulty="Level 1",
+        bpm=parsed.get("bpm", 60),
+        key_signature=parsed.get("key_signature"),
+        time_signature=parsed.get("time_signature"),
+        educational_category="Imported",
+        learning_objectives=[],
+        skills_required=[],
+        skills_reinforced=[],
+        prerequisite_lesson_slugs=[],
+        missions=missions,
+        sections=parsed.get("sections", []),
+        steps=parsed.get("steps", []),
+        adaptive_thresholds=parsed.get("adaptive_thresholds", {})
+    )
+    db.add(new_song)
+    db.commit()
+    db.refresh(new_song)
+
+    return ImportCommitResponse(
+        success=True, song_id=str(new_song.id),
+        message=f"Successfully imported: {new_song.title}"
+    )
 
 @router.get("", response_model=List[SongSchema])
 @router.get("/", response_model=List[SongSchema])

@@ -46,6 +46,9 @@ export function Login() {
     }
   };
 
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [pendingGoogleCredential, setPendingGoogleCredential] = useState<string | null>(null);
+
   const handleGoogleSuccess = async (credentialResponse: any) => {
     setError('');
     try {
@@ -54,7 +57,26 @@ export function Login() {
       });
       await login(data.access_token, data.refresh_token);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Google authentication failed');
+      if (err.response?.status === 409 && err.response?.data?.detail?.includes('link')) {
+        setPendingGoogleCredential(credentialResponse.credential);
+        setShowLinkModal(true);
+      } else {
+        setError(err.response?.data?.detail || 'Google authentication failed');
+      }
+    }
+  };
+
+  const handleLinkConfirm = async () => {
+    if (!pendingGoogleCredential) return;
+    try {
+      const { data } = await apiClient.post('/auth/google/link', {
+        credential: pendingGoogleCredential
+      });
+      setShowLinkModal(false);
+      await login(data.access_token, data.refresh_token);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to link accounts');
+      setShowLinkModal(false);
     }
   };
 
@@ -151,6 +173,27 @@ export function Login() {
           </div>
         </motion.div>
       </div>
+
+      {showLinkModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'var(--bg-card)', padding: '24px', borderRadius: '12px', width: '400px',
+            border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', color: 'var(--text-primary)' }}>Existing account found</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', lineHeight: 1.5 }}>
+              An email and password account already exists with this email address. Would you like to securely link your Google account?
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <Button variant="secondary" onClick={() => setShowLinkModal(false)}>Cancel</Button>
+              <Button variant="primary" onClick={handleLinkConfirm}>Link Account</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

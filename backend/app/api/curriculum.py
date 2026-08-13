@@ -79,6 +79,7 @@ class CheckpointAttemptRequest(BaseModel):
 @router.get("/paths", response_model=List[LearningPathSchema])
 def list_learning_paths(db: Session = Depends(get_db)):
     """List all published learning paths with their module trees."""
+    print("paths endpoint reached")
     return db.query(LearningPath).filter(LearningPath.is_published == True).order_by(LearningPath.display_order.asc()).all()
 
 @router.get("/paths/{path_id_or_slug}", response_model=LearningPathSchema)

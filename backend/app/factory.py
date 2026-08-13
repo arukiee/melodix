@@ -3,17 +3,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.middleware.request_id import RequestIDMiddleware
-from app.middleware.logging_middleware import StructuredLoggingMiddleware
-from app.api.v1.health import router as health_router
-from app.api.auth import router as auth_router
-from app.api.users import router as users_router
-from app.api.social import router as social_router
-from app.api.songs import router as songs_router
-from app.api.lessons import router as lessons_router
-from app.api.ai import router as ai_router
-from app.api.curriculum import router as curriculum_router
+from .core.config import settings
+from .middleware.request_id import RequestIDMiddleware
+from .middleware.logging_middleware import StructuredLoggingMiddleware
+from .api.v1.health import router as health_router
+from .api.auth import router as auth_router
+from .api.users import router as users_router
+from .api.social import router as social_router
+from .api.songs import router as songs_router
+from .api.lessons import router as lessons_router
+from .api.ai import router as ai_router
+from .api.curriculum import router as curriculum_router
+from .api.instruments import router as instruments_router
+from .api.practice import router as practice_router
+from .api.analysis import router as analysis_router
+from .api.import_song import router as import_router
 
 logger = logging.getLogger("melodix.factory")
 
@@ -50,7 +54,11 @@ def create_app() -> FastAPI:
     app.include_router(songs_router)
     app.include_router(lessons_router)
     app.include_router(ai_router)
-    app.include_router(curriculum_router)
+    app.include_router(curriculum_router, prefix="/api/v1")
+    app.include_router(instruments_router)
+    app.include_router(practice_router, prefix="/api/v1")
+    app.include_router(analysis_router, prefix="/api/v1")
+    app.include_router(import_router)
 
     return app
 

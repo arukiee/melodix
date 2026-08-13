@@ -98,16 +98,17 @@ export function Dashboard() {
                 <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
                   <Button 
                     variant="primary" 
-                    onClick={() => navigate('/studio')}
+                    onClick={() => navigate('/learn')}
                     style={{ width: '100%', display: 'flex', justifyContent: 'center', gap: '8px' }}
                   >
-                    <PlayCircle size={18} /> Start Practice Session
+                    <PlayCircle size={18} /> Start Piano Journey
                   </Button>
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-secondary)' }}>
-                <p>No active curriculum lessons available.</p>
+                <BookOpen size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
+                <p>No lesson selected.<br/>Choose a song to start practicing.</p>
               </div>
             )}
           </div>
@@ -132,7 +133,7 @@ export function Dashboard() {
               <Sparkles size={20} /> AI Curriculum Coach
             </h2>
             <p className={styles.aiText}>
-              Your current streak is active! Focus on finger independence during 5-finger position drills today.
+              Start practicing to let AI curriculum coach guide you.
             </p>
           </div>
         </div>
@@ -150,37 +151,43 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
-          {curriculum.map((lesson) => (
-            <div 
-              key={lesson.id}
-              className={styles.card}
-              onClick={() => navigate('/studio')}
-              style={{ cursor: 'pointer', transition: 'transform 0.2s ease', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-            >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Lesson #{lesson.display_order} • {lesson.category}
-                  </span>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '10px', background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
-                    {lesson.difficulty}
-                  </span>
+        {curriculum.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0', background: 'var(--surface-color)', borderRadius: 'var(--radius-card)' }}>
+            <p style={{ color: 'var(--text-secondary)' }}>No lessons available. Please import a song first.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+            {curriculum.map((lesson) => (
+              <div 
+                key={lesson.id}
+                className={styles.card}
+                onClick={() => navigate('/learn')}
+                style={{ cursor: 'pointer', transition: 'transform 0.2s ease', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      Lesson #{lesson.display_order} • {lesson.category}
+                    </span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '10px', background: 'var(--bg-elevated)', color: 'var(--text-secondary)' }}>
+                      {lesson.difficulty}
+                    </span>
+                  </div>
+
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>{lesson.title}</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '16px' }}>
+                    {lesson.description}
+                  </p>
                 </div>
 
-                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '8px' }}>{lesson.title}</h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.4, marginBottom: '16px' }}>
-                  {lesson.description}
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-muted)' }}>
+                  <span>{lesson.estimated_duration} mins duration</span>
+                  <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Start Lesson →</span>
+                </div>
               </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px solid var(--border-color)', fontSize: '12px', color: 'var(--text-muted)' }}>
-                <span>{lesson.estimated_duration} mins duration</span>
-                <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Start Lesson →</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </motion.div>
   );

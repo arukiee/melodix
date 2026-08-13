@@ -1,0 +1,386 @@
+.journey {
+  padding: 8px 0 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 40px;
+}
+
+.headerText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+.totalXP {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+/* ---- Levels ---- */
+.levels {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.levelWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.connector {
+  width: 2px;
+  height: 32px;
+  border-left: 2px dashed var(--border-color);
+  margin: 0 36px;
+  transition: border-color 0.4s ease;
+}
+
+.levelCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.levelCard:not(.locked):hover {
+  border-color: var(--level-color, var(--accent-primary));
+  box-shadow: 0 0 0 1px var(--level-color, transparent), 0 8px 32px rgba(0,0,0,0.4);
+}
+
+.levelCard.locked {
+  opacity: 0.55;
+}
+
+.levelCard.complete {
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.levelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  cursor: pointer;
+  user-select: none;
+  gap: 16px;
+}
+
+.levelLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.levelBadge {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.levelCard:not(.locked):hover .levelBadge {
+  transform: scale(1.05);
+}
+
+.levelEmoji {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.levelInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.levelMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.levelNumber {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.completeBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border-radius: 10px;
+}
+
+.lockedBadge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.05);
+  color: var(--text-muted);
+  border-radius: 10px;
+}
+
+.levelTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.levelSubtitle {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.levelRight {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.progressRing {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.progressText {
+  position: absolute;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.chevron {
+  color: var(--text-muted);
+}
+
+.progressBar {
+  height: 3px;
+  background: var(--border-color);
+  margin: 0 24px;
+}
+
+.progressFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---- Steps ---- */
+.steps {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 24px 24px;
+  gap: 4px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
+}
+
+.stepRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 14px;
+  gap: 12px;
+  transition: background 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.stepRow:not(.stepLocked):hover {
+  background: rgba(255,255,255,0.03);
+  border-color: var(--border-color);
+}
+
+.stepCurrent {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(var(--step-color, 255,255,255), 0.2) !important;
+}
+
+.stepLocked {
+  opacity: 0.45;
+}
+
+.stepDone {
+  opacity: 0.75;
+}
+
+.stepLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stepStatus {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.stepDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.15); }
+}
+
+.stepInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stepMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stepType {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  letter-spacing: 0.02em;
+}
+
+.stepDuration {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.stepTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.stepDesc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.stepRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.stepXP {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f59e0b;
+  white-space: nowrap;
+}
+
+.startBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.startBtn:hover {
+  transform: scale(1.04);
+  opacity: 0.92;
+}
+
+.replayBtn {
+  padding: 7px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.replayBtn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}

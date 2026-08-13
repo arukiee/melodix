@@ -1,6 +1,8 @@
 import uuid
-from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey, DateTime, func, Table, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Integer, Text, Boolean, ForeignKey, DateTime, Table, Index
+from app.models.json_type import ConditionalUUID
+from app.models.json_type import ConditionalJSON
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -8,16 +10,16 @@ from app.core.database import Base
 lesson_song = Table(
     'lesson_song',
     Base.metadata,
-    Column('lesson_id', UUID(as_uuid=True), ForeignKey('lessons.id', ondelete='CASCADE'), primary_key=True),
-    Column('song_id', UUID(as_uuid=True), ForeignKey('songs.id', ondelete='CASCADE'), primary_key=True),
+    Column('lesson_id', ConditionalUUID, ForeignKey('lessons.id', ondelete='CASCADE'), primary_key=True),
+    Column('song_id', ConditionalUUID, ForeignKey('songs.id', ondelete='CASCADE'), primary_key=True),
     Column('display_order', Integer, default=0)
 )
 
 class Lesson(Base):
     __tablename__ = "lessons"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    teacher_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    id = Column(ConditionalUUID, primary_key=True, default=uuid.uuid4)
+    teacher_id = Column(ConditionalUUID, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     
     title = Column(String(255), nullable=False)
     slug = Column(String(300), unique=True, nullable=False, index=True)
@@ -32,7 +34,16 @@ class Lesson(Base):
     thumbnail_url = Column(String(1024), nullable=True)
     
     # Structured objectives: [{"id": "obj-1", "title": "...", "description": "..."}]
-    objectives = Column(JSONB, default=list)
+    objectives = Column(ConditionalJSON, default=list)
+    
+    # Structured sections for progressive learning: [{"id": "s-1", "title": "Intro", "start_measure": 0, "end_measure": 8}]
+    sections = Column(ConditionalJSON, default=list)
+    
+    # Structured steps mapping to the 12-stage engine
+    steps = Column(ConditionalJSON, default=list)
+    
+    # Adaptive engine configurations (e.g. {"target_accuracy": 85, "initial_tempo_pct": 50})
+    adaptive_thresholds = Column(ConditionalJSON, default=dict)
     
     visibility = Column(String(50), default="PUBLIC")  # PUBLIC, PRIVATE
     is_published = Column(Boolean, default=False, index=True)
@@ -42,8 +53,8 @@ class Lesson(Base):
     is_deleted = Column(Boolean, default=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
     
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     teacher = relationship("User", back_populates="lessons")

@@ -1,50 +1,100 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Music, Check } from 'lucide-react';
+import { Music, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { GoogleLogin } from '@react-oauth/google';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { useUser } from '../context/UserContext';
+import { apiClient } from '../api/client';
 import styles from './Signup.module.css';
-
-const GoogleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-  </svg>
-);
 
 export function Signup() {
   const navigate = useNavigate();
-
-  const { profile, updateProfile } = useUser();
+  const { profile, isAuthenticated, login } = useUser();
+  
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   // If already logged in, redirect away from signup
   useEffect(() => {
-    if (profile.email) {
-      navigate('/dashboard');
+    if (isAuthenticated) {
+      if (profile.isOnboardingComplete) {
+        navigate(profile.role === 'TEACHER' ? '/teacher' : '/dashboard');
+      } else {
+        navigate('/onboarding');
+      }
     }
-  }, [profile.email, navigate]);
+  }, [isAuthenticated, profile, navigate]);
 
-  const handleSignup = (e: React.FormEvent) => {
+  // Password validation checks
+  const isLength = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSymbol = /[^A-Za-z0-9]/.test(password);
+
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile({
-      firstName: 'Sarah',
-      lastName: 'Jenkins',
-      email: 'sarah@example.com'
-    });
-    navigate('/dashboard');
+    setError('');
+    
+    if (!isLength || !hasUpper || !hasNumber || !hasSymbol) {
+      setError('Please ensure your password meets all requirements.');
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+    
+    if (!agreeTerms) {
+      setError('You must agree to the Terms of Service.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1. Register the user
+      await apiClient.post('/auth/register', {
+        email,
+        password,
+        full_name: fullName
+      });
+      
+      // 2. Login to get tokens
+      const formData = new URLSearchParams();
+      formData.append('username', email);
+      formData.append('password', password);
+      
+      const { data } = await apiClient.post('/auth/login', formData, {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      });
+      
+      await login(data.access_token, data.refresh_token);
+      // login will trigger the useEffect to navigate based on onboarding
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Failed to create account.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleGoogleAuth = () => {
-    updateProfile({
-      firstName: 'Sarah',
-      lastName: 'Jenkins',
-      email: 'sarah@example.com'
-    });
-    navigate('/dashboard');
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setError('');
+    try {
+      const { data } = await apiClient.post('/auth/google', {
+        credential: credentialResponse.credential
+      });
+      await login(data.access_token, data.refresh_token);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Google authentication failed');
+    }
   };
 
   return (
@@ -94,37 +144,93 @@ export function Signup() {
             <p className={styles.subtitle}>Start your piano journey with Melodix.</p>
           </div>
 
+          {error && (
+            <div style={{ backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', padding: '12px', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+              <AlertCircle size={18} /> {error}
+            </div>
+          )}
+
           <form className={styles.form} onSubmit={handleSignup}>
             <Input 
               label="Full Name" 
               type="text" 
               placeholder="Sarah Jenkins" 
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
               required 
             />
             <Input 
               label="Email" 
               type="email" 
               placeholder="sarah@example.com" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required 
             />
+            
+            <div style={{ position: 'relative' }}>
+              <Input 
+                label="Password" 
+                type={showPassword ? 'text' : 'password'} 
+                placeholder="••••••••" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required 
+              />
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: '12px', top: '34px', background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            
+            {password.length > 0 && (
+              <div style={{ fontSize: '0.8rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginBottom: '16px' }}>
+                <span style={{ color: isLength ? '#10b981' : 'var(--text-secondary)' }}>{isLength ? '✓' : '○'} 8+ characters</span>
+                <span style={{ color: hasUpper ? '#10b981' : 'var(--text-secondary)' }}>{hasUpper ? '✓' : '○'} One uppercase</span>
+                <span style={{ color: hasNumber ? '#10b981' : 'var(--text-secondary)' }}>{hasNumber ? '✓' : '○'} One number</span>
+                <span style={{ color: hasSymbol ? '#10b981' : 'var(--text-secondary)' }}>{hasSymbol ? '✓' : '○'} One symbol</span>
+              </div>
+            )}
+
             <Input 
-              label="Password" 
-              type="password" 
+              label="Confirm Password" 
+              type={showPassword ? 'text' : 'password'} 
               placeholder="••••••••" 
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               required 
             />
 
-            <Button type="submit" variant="primary">
-              Sign Up
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
+              <input 
+                type="checkbox" 
+                id="terms" 
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+              />
+              <label htmlFor="terms" style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                I agree to the <a href="#" style={{ color: 'var(--accent-primary)' }}>Terms of Service</a>
+              </label>
+            </div>
+
+            <Button type="submit" variant="primary" disabled={loading}>
+              {loading ? 'Creating account...' : 'Sign Up'}
             </Button>
           </form>
 
           <div className={styles.divider}>Or continue with</div>
 
-          <div className={styles.oauthGroup}>
-            <Button variant="secondary" type="button" onClick={handleGoogleAuth} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              <GoogleIcon /> Continue with Google
-            </Button>
+          <div className={styles.oauthGroup} style={{ display: 'flex', justifyContent: 'center' }}>
+            <GoogleLogin
+              onSuccess={handleGoogleSuccess}
+              onError={() => setError('Google sign-in failed.')}
+              useOneTap
+              shape="pill"
+            />
           </div>
 
           <div className={styles.footer}>

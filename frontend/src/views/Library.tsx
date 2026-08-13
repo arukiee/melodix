@@ -3,6 +3,7 @@ import { Search, ArrowLeft, Clock, Music, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { apiClient } from '../api/client';
+import { UniversalSearch } from '../components/Library/UniversalSearch';
 import styles from './Library.module.css';
 
 interface SongItem {
@@ -69,15 +70,8 @@ export function Library() {
           <h1 className={styles.title} style={{ marginBottom: 0 }}>Library</h1>
         </div>
         <div className={styles.actionBar}>
-          <div className={styles.searchWrapper}>
-            <Search size={20} className={styles.searchIcon} />
-            <input 
-              type="text" 
-              className={styles.searchInput} 
-              placeholder="Search catalog by title, composer, or genre..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className={styles.searchWrapper} style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+            <UniversalSearch />
           </div>
           <div className={styles.filters}>
             {['All', 'Beginner', 'Intermediate', 'Advanced'].map((diff) => (
@@ -102,8 +96,8 @@ export function Library() {
       ) : songs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text-secondary)' }}>
           <Music size={48} color="var(--text-muted)" style={{ marginBottom: '16px' }} />
-          <h3>No songs found</h3>
-          <p>{searchQuery ? `No catalog pieces matched "${searchQuery}".` : 'No catalog pieces available.'}</p>
+          <h3>{searchQuery ? 'No songs found' : 'Your library is empty'}</h3>
+          <p>{searchQuery ? `No catalog pieces matched "${searchQuery}".` : 'Import your first song.'}</p>
         </div>
       ) : (
         <div className={styles.categorySection}>

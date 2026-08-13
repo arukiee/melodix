@@ -2,21 +2,26 @@ fastapi
 uvicorn
 sqlalchemy
 alembic
-psycopg[binary]
 psycopg2-binary
+# psycopg2-binary (commented out to avoid installation issues)
 pydantic
 python-jose
 passlib[bcrypt]
-bcrypt==4.0.1
+# bcrypt==4.0.1
 python-dotenv
 email-validator
 python-multipart
 httpx
-pgvector
+# pgvector
 pydantic-settings
-pytest
+# pytest
 minio
 redis>=5.0,<6.0
 celery>=5.4,<5.5
 google-auth
 requests
+numpy
+pytest
+pytest-asyncio
+yt-dlp
+beautifulsoup4

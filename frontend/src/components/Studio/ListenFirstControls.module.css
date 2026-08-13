@@ -1,0 +1,75 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1a1a1a;
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: 1px solid #333;
+  margin-bottom: 16px;
+  color: #e0e0e0;
+}
+
+.controlsGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.iconBtn:hover {
+  color: #fff;
+  background-color: #333;
+}
+
+.iconBtn.active {
+  color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background-color: #333;
+  margin: 0 8px;
+}
+
+.rateSelector {
+  display: flex;
+  background-color: #0f0f0f;
+  border-radius: 20px;
+  padding: 4px;
+}
+
+.rateBtn {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.rateBtn:hover {
+  color: #fff;
+}
+
+.activeRate {
+  background-color: #333;
+  color: #fff;
+  font-weight: 500;
+}

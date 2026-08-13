@@ -19,6 +19,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def register_user(user_in: UserCreate, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_in.email).first()
     if user:
+        if "GOOGLE" in user.auth_provider:
+            raise HTTPException(status_code=409, detail="This email is already registered with Google. Please sign in with Google.")
         raise HTTPException(status_code=400, detail="Email already registered")
     
     new_user = User(
@@ -63,6 +65,10 @@ from app.services.dependencies import get_auth_service
 @router.post("/google", response_model=Token)
 def google_auth(request: GoogleLoginRequest, auth_service: AuthService = Depends(get_auth_service)):
     return auth_service.google_login(request.credential)
+
+@router.post("/google/link", response_model=Token)
+def google_link(request: GoogleLoginRequest, auth_service: AuthService = Depends(get_auth_service)):
+    return auth_service.link_google_account(request.credential)
 
 @router.post("/refresh", response_model=Token)
 def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):

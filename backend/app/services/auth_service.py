@@ -62,7 +62,7 @@ class AuthService:
             )
         return token_info
 
-    def _get_or_create_user(self, email: str, name: str, picture: str) -> User:
+    def _get_or_create_user(self, email: str, name: str, picture: str, is_linking: bool = False) -> User:
         user = self.db.query(User).filter(User.email == email).first()
         if not user:
             user = User(
@@ -81,8 +81,13 @@ class AuthService:
             self.db.commit()
             self.db.refresh(profile)
         else:
-            if user.auth_provider == "EMAIL":
-                user.auth_provider = "GOOGLE"
+            if user.auth_provider == "EMAIL" and not is_linking:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Existing account found. Would you like to link your Google account?"
+                )
+            elif is_linking and "GOOGLE" not in user.auth_provider:
+                user.auth_provider = f"{user.auth_provider},GOOGLE"
             if not user.profile:
                 profile = Profile(user_id=user.id)
                 self.db.add(profile)
@@ -99,7 +104,24 @@ class AuthService:
             )
         name = token_info.get("name", "Google User")
         picture = token_info.get("picture")
-        user = self._get_or_create_user(email, name, picture)
+        user = self._get_or_create_user(email, name, picture, is_linking=False)
+        return Token(
+            access_token=create_access_token(user.id, user.role),
+            refresh_token=create_refresh_token(user.id),
+            token_type="bearer",
+        )
+
+    def link_google_account(self, credential: str) -> Token:
+        token_info = self.verify_google_token(credential)
+        email = token_info.get("email")
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email not found in Google token",
+            )
+        name = token_info.get("name", "Google User")
+        picture = token_info.get("picture")
+        user = self._get_or_create_user(email, name, picture, is_linking=True)
         return Token(
             access_token=create_access_token(user.id, user.role),
             refresh_token=create_refresh_token(user.id),

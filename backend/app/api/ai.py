@@ -4,9 +4,9 @@ from pydantic import BaseModel
 import httpx
 import logging
 
-from app.core.config import settings
-from app.api.deps import get_current_user
-from app.models.user import User
+from ..core.config import settings
+from ..api.deps import get_current_user
+from ..models.user import User
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 

@@ -216,15 +216,40 @@ export function Profile() {
           </h2>
           <p className={styles.sectionDesc}>Manage third-party authentication providers.</p>
         </div>
+        <div className={styles.accountBox} style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '40px', height: '40px', background: 'var(--bg-secondary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-primary)', fontWeight: 'bold' }}>@</div>
+            <div>
+              <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Email & Password</div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)' }}>
+                {profile.authProvider?.includes('EMAIL') ? profile.email : 'Not connected'}
+              </div>
+            </div>
+          </div>
+          {profile.authProvider?.includes('EMAIL') ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-success)', fontSize: 'var(--text-label)', fontWeight: 500 }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-success)' }} />
+              Connected
+            </div>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: 'var(--text-label)', fontWeight: 500 }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--text-muted)' }} />
+              Not linked
+            </div>
+          )}
+        </div>
+
         <div className={styles.accountBox}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ width: '40px', height: '40px', background: '#FFF', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 'bold' }}>G</div>
             <div>
               <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>Google</div>
-              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)' }}>{profile.authProvider === 'GOOGLE' ? profile.email : 'Not connected'}</div>
+              <div style={{ fontSize: 'var(--text-caption)', color: 'var(--text-secondary)' }}>
+                {profile.authProvider?.includes('GOOGLE') ? profile.email : 'Not connected'}
+              </div>
             </div>
           </div>
-          {profile.authProvider === 'GOOGLE' ? (
+          {profile.authProvider?.includes('GOOGLE') ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-success)', fontSize: 'var(--text-label)', fontWeight: 500 }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--status-success)' }} />
               Connected

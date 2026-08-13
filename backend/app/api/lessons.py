@@ -164,6 +164,8 @@ def create_lesson(
         display_order=lesson_in.display_order,
         thumbnail_url=lesson_in.thumbnail_url,
         objectives=[obj.model_dump() for obj in lesson_in.objectives],
+        steps=[step.model_dump() for step in lesson_in.steps] if lesson_in.steps else [],
+        adaptive_thresholds=lesson_in.adaptive_thresholds or {},
         visibility=lesson_in.visibility,
         is_published=lesson_in.is_published,
         published_at=datetime.utcnow() if lesson_in.is_published else None
@@ -204,6 +206,10 @@ def update_lesson(
     if "objectives" in update_data and update_data["objectives"] is not None:
         lesson.objectives = [obj.model_dump() for obj in update_data["objectives"]]
         del update_data["objectives"]
+        
+    if "steps" in update_data and update_data["steps"] is not None:
+        lesson.steps = [step.model_dump() for step in update_data["steps"]]
+        del update_data["steps"]
 
     for field, value in update_data.items():
         setattr(lesson, field, value)

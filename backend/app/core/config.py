@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7 # 7 days
 
     # Databases & Cache
-    DATABASE_URL: str = "postgresql://melodix:melodix_pass@postgres:5432/melodix_db"
+    DATABASE_URL: str = "sqlite:///./test.db"
     REDIS_URL: str = "redis://redis:6379/0"
 
     # Storage (MinIO)

@@ -1,0 +1,148 @@
+[
+  {
+    "title": "Hot Cross Buns",
+    "composer": "Traditional",
+    "difficulty": "Level 1",
+    "bpm": 60,
+    "key_signature": "G Major",
+    "time_signature": "4/4",
+    "educational_category": "Beginner Foundation",
+    "learning_objectives": ["Master 3-note melody navigation", "Basic 4/4 meter counting"],
+    "skills_required": ["3-Finger Position"],
+    "skills_reinforced": ["Legato Phrasing"],
+    "prerequisite_lesson_slugs": [],
+    "missions": [
+      {
+        "id": "hcb-m1",
+        "title": "Listen & Rhythm Practice",
+        "type": "listen",
+        "bpm": 60,
+        "learningGoal": "Clap along with the melody in steady quarter notes.",
+        "xpReward": 10
+      },
+      {
+        "id": "hcb-m2",
+        "title": "Right Hand Notes",
+        "type": "right_hand",
+        "bpm": 50,
+        "learningGoal": "Play the main 3-note motif with fingers 3, 2, and 1.",
+        "xpReward": 25,
+        "expectedNotes": ["B4", "A4", "G4"]
+      },
+      {
+        "id": "hcb-m3",
+        "title": "Hands Together (Target Tempo)",
+        "type": "both_hands",
+        "bpm": 60,
+        "learningGoal": "Perform the complete melody at full tempo with expression.",
+        "xpReward": 50,
+        "expectedNotes": ["B4", "A4", "G4", "B4", "A4", "G4", "G4", "G4", "G4", "G4", "A4", "A4", "A4", "A4", "B4", "A4", "G4"]
+      }
+    ]
+  },
+  {
+    "title": "Mary Had a Little Lamb",
+    "composer": "Traditional",
+    "difficulty": "Level 1",
+    "bpm": 70,
+    "key_signature": "C Major",
+    "time_signature": "4/4",
+    "educational_category": "Beginner Foundation",
+    "learning_objectives": ["Stepwise motion", "Hand position alignment"],
+    "skills_required": ["5-Finger Position"],
+    "skills_reinforced": ["Interval matching"],
+    "prerequisite_lesson_slugs": ["hot-cross-buns"],
+    "missions": [
+      {
+        "id": "mhall-m1",
+        "title": "Right Hand Notes",
+        "type": "right_hand",
+        "bpm": 60,
+        "learningGoal": "Practice step-wise intervals using your right hand.",
+        "xpReward": 20,
+        "expectedNotes": ["E4", "D4", "C4", "D4", "E4", "E4", "E4"]
+      },
+      {
+        "id": "mhall-m2",
+        "title": "Complete Performance",
+        "type": "both_hands",
+        "bpm": 70,
+        "learningGoal": "Play the complete theme with steady rhythm at target tempo.",
+        "xpReward": 45,
+        "expectedNotes": ["E4", "D4", "C4", "D4", "E4", "E4", "E4", "D4", "D4", "D4", "E4", "G4", "G4"]
+      }
+    ]
+  },
+  {
+    "title": "Ode to Joy",
+    "composer": "Ludwig van Beethoven",
+    "difficulty": "Level 2",
+    "bpm": 80,
+    "key_signature": "G Major",
+    "time_signature": "4/4",
+    "educational_category": "Classical Intro",
+    "learning_objectives": ["Extended note repetitions", "Staccato timing"],
+    "skills_required": ["5-Finger Position", "Treble Staff"],
+    "skills_reinforced": ["Dynamics"],
+    "prerequisite_lesson_slugs": ["mary-had-a-little-lamb"],
+    "missions": [
+      {
+        "id": "otj-m1",
+        "title": "Main Theme (Right Hand)",
+        "type": "right_hand",
+        "bpm": 70,
+        "learningGoal": "Play the joyful theme using clear staccato accents.",
+        "xpReward": 30,
+        "expectedNotes": ["B4", "B4", "C5", "D5", "D5", "C5", "B4", "A4"]
+      }
+    ]
+  },
+  {
+    "title": "Minuet in G",
+    "composer": "Christian Petzold",
+    "difficulty": "Level 3",
+    "bpm": 72,
+    "key_signature": "G Major",
+    "time_signature": "3/4",
+    "educational_category": "Intermediate Coordination",
+    "learning_objectives": ["Execute waltz phrasing", "Light staccato accents"],
+    "skills_required": ["Hands Together", "Waltz Meter"],
+    "skills_reinforced": ["Accenting"],
+    "prerequisite_lesson_slugs": ["ode-to-joy"],
+    "missions": [
+      {
+        "id": "mig-m1",
+        "title": "Waltz Phrasing",
+        "type": "both_hands",
+        "bpm": 72,
+        "learningGoal": "Practice coordinating left hand drone chords with the right hand melody.",
+        "xpReward": 40,
+        "expectedNotes": ["D5", "G4", "A4", "B4", "C5", "D5", "G4"]
+      }
+    ]
+  },
+  {
+    "title": "Clair de Lune",
+    "composer": "Claude Debussy",
+    "difficulty": "Level 5",
+    "bpm": 50,
+    "key_signature": "Db Major",
+    "time_signature": "9/8",
+    "educational_category": "Advanced Expression",
+    "learning_objectives": ["Polyrhythm alignment", "Complex time signature spacing"],
+    "skills_required": ["Advanced Rubato", "Pedal control"],
+    "skills_reinforced": ["Expression"],
+    "prerequisite_lesson_slugs": ["minuet-in-g"],
+    "missions": [
+      {
+        "id": "cdl-m1",
+        "title": "Impressionistic Rubato",
+        "type": "both_hands",
+        "bpm": 50,
+        "learningGoal": "Emphasize expressive phrasing and soft sustain control.",
+        "xpReward": 100,
+        "expectedNotes": ["F5", "Eb5", "Db5", "C5", "Bb4"]
+      }
+    ]
+  }
+]

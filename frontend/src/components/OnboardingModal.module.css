@@ -1,0 +1,101 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-card);
+  padding: 32px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.title {
+  margin: 0 0 8px 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+.subtitle {
+  margin: 0 0 32px 0;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.optionBtn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+}
+
+.optionBtn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-color);
+}
+
+.optionBtn.selected {
+  background-color: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-primary);
+}
+
+.iconWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.optionBtn.selected .iconWrapper {
+  background-color: var(--accent-primary);
+  color: white;
+}
+
+.optionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.optionTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.optionDesc {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}

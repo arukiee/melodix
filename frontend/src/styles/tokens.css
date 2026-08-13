@@ -1,0 +1,68 @@
+/* src/styles/tokens.css */
+/* Premium design tokens for Melodix */
+
+:root {
+  /* Color palette */
+  --color-primary-start: #0d5e71; /* deep teal */
+  --color-primary-end: #6a1b9a;   /* violet */
+  --color-primary: linear-gradient(135deg, var(--color-primary-start), var(--color-primary-end));
+  --color-surface: rgba(255, 255, 255, 0.12);
+  --color-background-light: #f5f7fa;
+  --color-background-dark: #121212;
+  --color-on-primary: #ffffff;
+  --color-on-surface: #ffffff;
+  --color-muted: #888888;
+
+  /* Typography */
+  --font-family: 'Inter', system-ui, sans-serif;
+  --font-size-base: 1rem; /* 16px */
+  --font-size-sm: 0.875rem; /* 14px */
+  --font-size-lg: 1.125rem; /* 18px */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
+
+  /* Spacing (8px grid) */
+  --spacing-0: 0;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 16px;
+  --spacing-4: 24px;
+  --spacing-5: 32px;
+  --spacing-6: 40px;
+  --spacing-7: 48px;
+}
+
+/* Global resets */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  background: var(--color-background-light);
+  color: #212121;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: var(--color-background-dark);
+    color: #e0e0e0;
+  }
+}
+
+/* Utility classes */
+.u-flex { display: flex; }
+.u-flex-center { align-items: center; justify-content: center; }
+.u-py-3 { padding-top: var(--spacing-3); padding-bottom: var(--spacing-3); }
+.u-px-3 { padding-left: var(--spacing-3); padding-right: var(--spacing-3); }
+.u-rounded { border-radius: 12px; }
+.u-shadow { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.u-glass {
+  background: var(--color-surface);
+  backdrop-filter: blur(12px);
+}
