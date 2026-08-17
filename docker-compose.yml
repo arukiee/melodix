@@ -7,7 +7,7 @@ services:
     container_name: melodix_backend
     ports:
       - "8000:8000"
-    env_file: .env.docker
+    env_file: .env
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
     volumes:
       - ./backend:/app
@@ -56,7 +56,7 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    env_file: .env.docker
+    env_file: .env
     volumes:
       - minio_data:/data
     healthcheck:

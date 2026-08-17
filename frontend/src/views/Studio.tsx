@@ -1,78 +1,110 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { StudioTopBar } from '../components/Studio/StudioTopBar';
-import { SheetMusic } from '../components/Studio/SheetMusic';
-import { PracticeTimeline } from '../components/Studio/PracticeTimeline';
-import { AICoach } from '../components/Studio/AICoach';
-import { PianoKeyboard } from '../components/Studio/PianoKeyboard';
-import { TransportBar } from '../components/Studio/TransportBar';
+import { useNavigate, useParams } from 'react-router-dom';
+import { PracticeWorkspace } from '../components/Studio/PracticeWorkspace';
+import type { PracticeMission, PracticePhase } from '../api/practice';
+import { getPipelineCurriculum } from '../api/audio';
 import styles from './Studio.module.css';
 
 export function Studio() {
   const navigate = useNavigate();
-  const [isFocusMode, setIsFocusMode] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playheadPos, setPlayheadPos] = useState(0); // 0 to 100
+  const { songId: jobId } = useParams<{ songId: string }>(); 
+  const [phases, setPhases] = useState<PracticePhase[]>([]);
+  const [activeMission, setActiveMission] = useState<PracticeMission | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock playback loop
   useEffect(() => {
-    let interval: any;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setPlayheadPos(prev => {
-          if (prev >= 100) {
-            setIsPlaying(false);
-            return 100;
+    const fetchCurriculum = async () => {
+      if (!jobId) return;
+      try {
+        setIsLoading(true);
+        // Fetch the structured curriculum (Phase 10) instead of flat notes
+        const data = await getPipelineCurriculum(jobId);
+        
+        setPhases(data.phases || []);
+        
+        // Auto-select the first available mission
+        if (data.phases && data.phases.length > 0) {
+          const firstPhase = data.phases[0];
+          if (firstPhase.missions && firstPhase.missions.length > 0) {
+            setActiveMission(firstPhase.missions[0]);
           }
-          return prev + 0.1;
-        });
-      }, 50);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+        }
+      } catch (err: any) {
+        console.error(err);
+        setError("Failed to load learning curriculum. " + err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchCurriculum();
+  }, [jobId]);
 
-  const handleEndSession = () => {
-    navigate('/summary/clair-de-lune');
-  };
+  if (isLoading) {
+    return <div className={styles.studioContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>Loading Curriculum...</div>;
+  }
 
-  const togglePlay = () => setIsPlaying(!isPlaying);
+  if (error || phases.length === 0 || !activeMission) {
+    return <div className={styles.studioContainer} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>{error || "Failed to create curriculum"}</div>;
+  }
 
   return (
-    <div className={styles.studioContainer}>
-      {/* 1. Top Toolbar */}
-      {!isFocusMode && (
-        <StudioTopBar 
-          isFocusMode={isFocusMode} 
-          toggleFocusMode={() => setIsFocusMode(!isFocusMode)} 
-        />
-      )}
-
-      {isFocusMode && (
-        <div 
-          style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 100, cursor: 'pointer', background: 'var(--bg-elevated)', padding: '8px 16px', borderRadius: '20px', fontSize: '12px', border: '1px solid var(--border-color)' }}
-          onClick={() => setIsFocusMode(false)}
-        >
-          Exit Focus Mode
-        </div>
-      )}
-
-      {/* 2. Main Workspace */}
-      <div className={styles.mainWorkspace}>
-        <div className={styles.learningArea}>
-          <SheetMusic />
-          <PracticeTimeline playheadPos={playheadPos} />
+    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg-primary)' }}>
+      {/* Curriculum Sidebar */}
+      <div style={{ width: '300px', borderRight: '1px solid var(--border-color)', background: 'var(--bg-elevated)', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)' }}>
+          <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', margin: 0 }}>Learning Plan</h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Structured practice steps</p>
         </div>
         
-        {!isFocusMode && <AICoach />}
+        <div style={{ flex: 1, padding: '16px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {phases.map((phase) => (
+            <div key={phase.id}>
+              <h3 style={{ fontSize: '0.9rem', color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
+                {phase.title}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {phase.missions.map((mission) => {
+                  const isActive = activeMission.id === mission.id;
+                  return (
+                    <div
+                      key={mission.id}
+                      onClick={() => setActiveMission(mission)}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: isActive ? 'var(--accent-primary)' : 'var(--bg-card)',
+                        color: isActive ? 'white' : 'var(--text-primary)',
+                        border: isActive ? '1px solid var(--accent-primary)' : '1px solid var(--border-color)',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>{mission.title}</div>
+                      <div style={{ fontSize: '0.8rem', opacity: isActive ? 0.9 : 0.6, marginTop: '4px' }}>
+                        {mission.learningGoal}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* 3. Bottom Piano & Transport */}
-      <div className={styles.bottomArea}>
-        <PianoKeyboard isPlaying={isPlaying} />
-        <TransportBar 
-          onEndSession={handleEndSession} 
-          isPlaying={isPlaying} 
-          onTogglePlay={togglePlay} 
+      {/* Main Workspace */}
+      <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+        <PracticeWorkspace
+          // Force remount when switching missions so the internal timers and recorders reset properly
+          key={activeMission.id}
+          songTitle="AI Curriculum Practice"
+          mission={activeMission}
+          onBack={() => navigate('/learn')}
+          onComplete={() => {
+             // Basic progression mock
+             alert("Mission completed! Moving to next step is not fully automated yet.");
+          }}
         />
       </div>
     </div>

@@ -255,7 +255,7 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
 
           // Submit to backend analysis pipeline
           try {
-            const analysis = await practiceApi.analyzePracticePerformance(audioBlob, metronomeBpm, mission.expectedNotes ?? []);
+            const analysis = await practiceApi.analyzePracticePerformance(audioBlob, metronomeBpm, mission.expectedEvents ?? []);
             setAnalysisResult(analysis);
             const score = Math.round(analysis.scores.overallScore);
 

@@ -49,11 +49,10 @@ function AppRoutes() {
 
   // Route guard for authenticated users
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    if (isAuthenticated) return <Navigate to="/login" />;
-    if (isOnboardingComplete) return <Navigate to="/onboarding" />;
-    // if (!isAuthenticated) return <Navigate to="/login" />;
-    // if (!isOnboardingComplete) return <Navigate to="/onboarding" />;
-    return children;
+    if (!isAuthenticated) {
+      return <Navigate to="/login" />;
+    }
+    return <>{children}</>;
   };
 
   return (
@@ -90,7 +89,7 @@ function AppRoutes() {
         {/* Full Screen Routes */}
         <Route path="/studio/:songId" element={<Studio />} />
         <Route path="/summary/:songId" element={<PracticeSummary />} />
-        <Route path="/processing" element={<AIProcessing />} />
+        <Route path="/processing/:jobId" element={<AIProcessing />} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

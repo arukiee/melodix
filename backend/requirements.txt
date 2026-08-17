@@ -25,3 +25,8 @@ pytest
 pytest-asyncio
 yt-dlp
 beautifulsoup4
+# ── Real-data pipeline dependencies ──
+basic-pitch
+librosa
+soundfile
+pretty-midi

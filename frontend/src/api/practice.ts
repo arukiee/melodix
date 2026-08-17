@@ -3,6 +3,12 @@ import { apiClient } from './client';
 export type MissionType = 'listen' | 'right_hand' | 'left_hand' | 'both_hands' | 'tempo' | 'performance';
 export type MissionStatus = 'locked' | 'available' | 'in_progress' | 'completed';
 
+export interface ExpectedEvent {
+  note: string;
+  relative_time: number;
+  duration: number;
+}
+
 export interface PracticeMission {
   id: string;
   title: string;
@@ -15,6 +21,7 @@ export interface PracticeMission {
   sections?: any[];
   steps?: any[];
   expectedNotes?: string[];
+  expectedEvents?: ExpectedEvent[];
 }
 
 export interface PracticePhase {
@@ -126,13 +133,14 @@ export const practiceApi = {
   analyzePracticePerformance: async (
     audioBlob: Blob,
     targetBpm: number,
-    expectedNotes: string[] = []
+    expectedEvents: ExpectedEvent[] = []
   ): Promise<AnalysisResult> => {
     const formData = new FormData();
     formData.append('file', audioBlob, 'performance.wav');
     formData.append('target_bpm', targetBpm.toString());
-    // Send expected notes so the backend comparison engine can score correctly
-    expectedNotes.forEach(note => formData.append('expected_notes', note));
+    
+    // Send full ExpectedEvent structures as a JSON string so the backend has rich timing data
+    formData.append('expected_events', JSON.stringify(expectedEvents));
 
     const response = await apiClient.post<AnalysisResult>('/api/v1/practice/analyze', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

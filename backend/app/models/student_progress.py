@@ -20,6 +20,12 @@ class StudentLearningState(Base):
     unlocked_lesson_ids = Column(ConditionalJSON, default=list)
     completed_lesson_ids = Column(ConditionalJSON, default=list)
     
+    # Adaptive Difficulty Tracking (Step 19)
+    # Track per-song, per-difficulty accuracy history to unlock higher levels
+    # format: { "song_id": { "EASY": [{ "score": 96, "date": "..." }], "MEDIUM": [] } }
+    performance_history = Column(ConditionalJSON, default=dict)
+    current_difficulty = Column(String(20), default="EASY")
+    
     # Skill Levels & Weak Areas Mapping
     # skill_levels: {"Posture": 90, "SightReading": 75, "Rhythm": 82}
     skill_levels = Column(ConditionalJSON, default=dict)

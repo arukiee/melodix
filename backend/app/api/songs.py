@@ -4,8 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.song import Song
+from app.models.user import User
 from app.schemas.song import SongSchema, SongCreate, SongUpdate
 from app.services.provider_ultimate_guitar import ultimate_guitar_provider
 from app.services.provider_youtube import youtube_provider
@@ -24,7 +26,7 @@ async def search_songs(
     hasMidi: Optional[bool] = None,
     hasChords: Optional[bool] = None,
     beginnerFriendly: Optional[bool] = None,
-    limit: int = Query(10, ge=7, le=10),
+    limit: int = Query(10, ge=1, le=10),
     db: Session = Depends(get_db)
 ):
     filters = SearchFilter(
@@ -51,7 +53,11 @@ from app.api.import_song import _run_pipeline
 from app.schemas.import_schema import ImportCommitResponse
 
 @router.post("/import_from_search", response_model=ImportCommitResponse)
-async def import_from_search(request: ImportSearchRequest, db: Session = Depends(get_db)):
+async def import_from_search(
+    request: ImportSearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if request.provider == "Local Library":
         return ImportCommitResponse(
             success=True, song_id=request.id,
@@ -86,10 +92,13 @@ async def import_from_search(request: ImportSearchRequest, db: Session = Depends
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
 
+    title = parsed.get("title") or request.title or "Imported Song"
+    composer = parsed.get("composer") or request.artist or "Unknown"
+
     # Check for existing song
     existing = db.query(Song).filter(
-        Song.title == parsed.get("title", request.title),
-        Song.composer == parsed.get("composer", request.artist)
+        Song.title == title,
+        Song.composer == composer
     ).first()
 
     if existing:
@@ -107,8 +116,8 @@ async def import_from_search(request: ImportSearchRequest, db: Session = Depends
         )
 
     new_song = Song(
-        title=parsed.get("title", request.title),
-        composer=parsed.get("composer", request.artist),
+        title=title,
+        composer=composer,
         artist=request.artist,
         difficulty="Level 1",
         bpm=parsed.get("bpm", 60),

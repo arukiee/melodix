@@ -18,6 +18,8 @@ from .api.instruments import router as instruments_router
 from .api.practice import router as practice_router
 from .api.analysis import router as analysis_router
 from .api.import_song import router as import_router
+from .api.audio import router as audio_router
+from .api.pipeline import router as pipeline_router
 
 logger = logging.getLogger("melodix.factory")
 
@@ -59,6 +61,8 @@ def create_app() -> FastAPI:
     app.include_router(practice_router, prefix="/api/v1")
     app.include_router(analysis_router, prefix="/api/v1")
     app.include_router(import_router)
+    app.include_router(audio_router)
+    app.include_router(pipeline_router)
 
     return app
 

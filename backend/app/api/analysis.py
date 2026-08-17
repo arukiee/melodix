@@ -8,7 +8,8 @@ from typing import List
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.services.music_engine.base_analyzer import AnalysisRequest, AnalysisResult
+import json
+from app.services.music_engine.base_analyzer import AnalysisRequest, AnalysisResult, ExpectedEvent
 from app.services.music_engine.analyzer import AutocorrelationAnalyzer
 
 router = APIRouter(prefix="/practice", tags=["analysis"])
@@ -18,6 +19,7 @@ async def analyze_recording(
     file: UploadFile = File(...),
     target_bpm: int = Form(60),
     expected_notes: List[str] = Form([]),
+    expected_events: str = Form("[]"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -51,12 +53,20 @@ async def analyze_recording(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid WAV file layout: {str(e)}")
 
+    # Parse JSON expected_events
+    try:
+        parsed_events = json.loads(expected_events)
+        typed_events = [ExpectedEvent(**e) for e in parsed_events]
+    except Exception:
+        typed_events = []
+
     # Coordinate through pluggable AutocorrelationAnalyzer
     analyzer = AutocorrelationAnalyzer()
     request_data = AnalysisRequest(
         audio_data=data,
         sample_rate=framerate,
         expected_notes=expected_notes,
+        expected_events=typed_events,
         target_bpm=target_bpm
     )
 

@@ -11,3 +11,10 @@ from app.models.curriculum import (
 from app.models.student_progress import StudentLearningState
 
 # Expose all models so Alembic metadata can discover them for migrations
+from app.models.audio_asset import AudioAsset
+from app.models.processing_job import ProcessingJob
+from app.models.transcription import Transcription
+from app.models.transcription_note import TranscriptionNote
+from app.models.difficulty_variant import DifficultyVariant
+from app.models.difficulty_note import DifficultyNote
+from app.models.provenance import ProcessingProvenance

@@ -119,3 +119,61 @@ class StorageService:
         except S3Error as exc:
             logging.error("MinIO delete failed for %s: %s", object_name, exc)
             raise
+
+    def upload_bytes(self, object_name: str, data: bytes, content_type: str = "application/octet-stream") -> None:
+        """Upload raw bytes to ``object_name``.
+
+        Convenience wrapper around ``upload`` that accepts bytes directly.
+        Used by the audio pipeline for storing files and artifacts.
+        """
+        import io
+        stream = io.BytesIO(data)
+        try:
+            self.client.put_object(
+                bucket_name=self.settings.bucket_name,
+                object_name=self._object_path(object_name),
+                data=stream,
+                length=len(data),
+                content_type=content_type,
+            )
+            logging.info("Uploaded %d bytes to %s", len(data), object_name)
+        except S3Error as exc:
+            logging.error("MinIO upload_bytes failed for %s: %s", object_name, exc)
+            raise
+
+    def download_bytes(self, object_name: str) -> bytes | None:
+        """Download the object and return its raw bytes.
+
+        Returns None if the object does not exist.
+        """
+        try:
+            return self.download(object_name)
+        except Exception:
+            return None
+
+    def upload_file(self, object_name: str, file_path: str, content_type: str = "application/octet-stream") -> None:
+        """Upload a local file to MinIO.
+
+        Used by the transcription pipeline to store generated artifacts
+        (raw MIDI, model outputs, note events CSVs).
+        """
+        try:
+            self.client.fput_object(
+                bucket_name=self.settings.bucket_name,
+                object_name=self._object_path(object_name),
+                file_path=file_path,
+                content_type=content_type,
+            )
+            logging.info("Uploaded file %s to %s", file_path, object_name)
+        except S3Error as exc:
+            logging.error("MinIO upload_file failed for %s: %s", object_name, exc)
+            raise
+
+
+# Module-level lazy singleton — instantiated on first use
+try:
+    minio_service = StorageService()
+except Exception:
+    logging.warning("MinIO service not available — storage operations will fail")
+    minio_service = None  # type: ignore
+

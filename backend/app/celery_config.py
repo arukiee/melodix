@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 from datetime import timedelta
 
@@ -13,5 +13,7 @@ class CelerySettings(BaseSettings):
             "schedule": timedelta(hours=1),
         },
     }
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )

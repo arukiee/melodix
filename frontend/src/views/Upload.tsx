@@ -4,11 +4,13 @@ import { UploadCloud, Link } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
 import styles from './Upload.module.css';
+import { uploadAudio } from '../api/audio';
 
 export function Upload() {
   const navigate = useNavigate();
   const [dragActive, setDragActive] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -20,18 +22,31 @@ export function Upload() {
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      navigate('/processing');
+      await handleFileUpload(e.dataTransfer.files[0]);
     }
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      navigate('/processing');
+      await handleFileUpload(e.target.files[0]);
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      setIsUploading(true);
+      const res = await uploadAudio(file);
+      navigate(`/processing/${res.processing_job_id}`);
+    } catch (err) {
+      console.error(err);
+      alert('Upload failed. Check the console for details.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -69,10 +84,10 @@ export function Upload() {
           id="file-upload" 
           style={{ display: 'none' }} 
           onChange={handleFileInput}
-          accept=".mid,.midi,.xml,.mxl,.pdf,.mp3"
+          accept=".mid,.midi,.xml,.mxl,.pdf,.mp3,.wav,.flac,.ogg,.m4a"
         />
-        <Button variant="secondary" onClick={() => document.getElementById('file-upload')?.click()}>
-          Browse Files
+        <Button variant="secondary" onClick={() => document.getElementById('file-upload')?.click()} disabled={isUploading}>
+          {isUploading ? 'Uploading...' : 'Browse Files'}
         </Button>
       </div>
 

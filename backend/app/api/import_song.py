@@ -3,8 +3,10 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
+from app.api.deps import get_current_user
 from app.core.database import get_db
 from app.models.song import Song
+from app.models.user import User
 from app.schemas.import_schema import (
     ImportPreviewResponse, ImportCommitResponse, ChordInfo, MissionInfo
 )
@@ -28,10 +30,12 @@ ALLOWED_EXTENSIONS = {".xml", ".musicxml", ".mid", ".midi", ".ug", ".txt", ".yt"
 
 def _validate_upload(file_bytes: bytes, filename: str):
     """Validates file size and extension before pipeline processing."""
+    normalized_name = filename.lower()
+
     # Extension check
     ext = ""
-    if "." in filename:
-        ext = "." + filename.rsplit(".", 1)[-1].lower()
+    if "." in normalized_name:
+        ext = "." + normalized_name.rsplit(".", 1)[-1]
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=415,
@@ -51,14 +55,34 @@ def _validate_upload(file_bytes: bytes, filename: str):
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
 
+async def _read_upload_file(file: UploadFile) -> bytes:
+    """Read a file in bounded chunks and reject oversize uploads before processing."""
+    chunks: list[bytes] = []
+    total_size = 0
+    while True:
+        chunk = await file.read(64 * 1024)
+        if not chunk:
+            break
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large ({total_size / (1024 * 1024):.1f} MB). Maximum allowed: 5 MB."
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def _run_pipeline(file_bytes: bytes, filename: str):
     """Runs the full import pipeline and returns the normalized result."""
+    normalized_name = filename.lower()
+
     # 1. Choose importer based on extension
-    if filename.endswith(".mid") or filename.endswith(".midi"):
+    if normalized_name.endswith(".mid") or normalized_name.endswith(".midi"):
         importer = MIDIImporter()
-    elif filename.endswith(".ug") or filename.endswith(".txt"):
+    elif normalized_name.endswith(".ug") or normalized_name.endswith(".txt"):
         importer = ChordSheetImporter()
-    elif filename.endswith(".yt") or filename.endswith(".json"):
+    elif normalized_name.endswith(".yt") or normalized_name.endswith(".json"):
         importer = YouTubeImporter()
     else:
         importer = MusicXMLImporter()
@@ -97,8 +121,11 @@ def _run_pipeline(file_bytes: bytes, filename: str):
         415: {"description": "Unsupported file type."},
     }
 )
-async def preview_import(file: UploadFile = File(...)):
-    file_bytes = await file.read()
+async def preview_import(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    file_bytes = await _read_upload_file(file)
     filename = file.filename or "upload.xml"
 
     _validate_upload(file_bytes, filename)
@@ -110,8 +137,8 @@ async def preview_import(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Import preview failed: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+        logger.error("Import preview failed", exc_info=e)
+        raise HTTPException(status_code=400, detail="Failed to parse file.")
 
     return ImportPreviewResponse(
         title=parsed.get("title", "Unknown"),
@@ -156,8 +183,12 @@ async def preview_import(file: UploadFile = File(...)):
         415: {"description": "Unsupported file type."},
     }
 )
-async def commit_import(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
+async def commit_import(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    file_bytes = await _read_upload_file(file)
     filename = file.filename or "upload.xml"
 
     _validate_upload(file_bytes, filename)
@@ -168,40 +199,47 @@ async def commit_import(file: UploadFile = File(...), db: Session = Depends(get_
         )
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Import commit failed: {str(e)}")
-        raise HTTPException(status_code=400, detail=f"Failed to parse file: {str(e)}")
+    except Exception:
+        logger.error("Import commit failed", exc_info=True)
+        raise HTTPException(status_code=400, detail="Failed to parse file.")
 
     # Block commit if there are critical validation errors
-    critical = [w for w in warnings if "no parsed notes" in w.lower() or "missing" in w.lower()]
+    critical = [w for w in warnings if "no parsed notes" in w.lower()]
     if critical:
         return ImportCommitResponse(
             success=False, message=f"Import blocked: {'; '.join(critical)}"
         )
 
+    title = parsed.get("title") or file.filename or "Imported Song"
+    composer = parsed.get("composer") or "Unknown"
+
     # Check for existing song
     existing = db.query(Song).filter(
-        Song.title == parsed.get("title"),
-        Song.composer == parsed.get("composer")
+        Song.title == title,
+        Song.composer == composer
     ).first()
 
     if existing:
-        existing.bpm = parsed.get("bpm", 60)
-        existing.key_signature = parsed.get("key_signature")
-        existing.time_signature = parsed.get("time_signature")
-        existing.missions = missions
-        existing.sections = parsed.get("sections", [])
-        existing.steps = parsed.get("steps", [])
-        existing.adaptive_thresholds = parsed.get("adaptive_thresholds", {})
-        db.commit()
+        try:
+            existing.bpm = parsed.get("bpm", 60)
+            existing.key_signature = parsed.get("key_signature")
+            existing.time_signature = parsed.get("time_signature")
+            existing.missions = missions
+            existing.sections = parsed.get("sections", [])
+            existing.steps = parsed.get("steps", [])
+            existing.adaptive_thresholds = parsed.get("adaptive_thresholds", {})
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
         return ImportCommitResponse(
             success=True, song_id=str(existing.id),
-            message=f"Updated existing song: {parsed['title']}"
+            message=f"Updated existing song: {title}"
         )
 
     new_song = Song(
-        title=parsed.get("title", "Imported Song"),
-        composer=parsed.get("composer", "Unknown"),
+        title=title,
+        composer=composer,
         difficulty="Level 1",
         bpm=parsed.get("bpm", 60),
         key_signature=parsed.get("key_signature"),
@@ -217,10 +255,14 @@ async def commit_import(file: UploadFile = File(...), db: Session = Depends(get_
         adaptive_thresholds=parsed.get("adaptive_thresholds", {})
     )
     db.add(new_song)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(new_song)
 
     return ImportCommitResponse(
         success=True, song_id=str(new_song.id),
-        message=f"Successfully imported: {parsed['title']}"
+        message=f"Successfully imported: {title}"
     )
