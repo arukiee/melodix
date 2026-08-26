@@ -3,6 +3,7 @@ import { apiClient } from './client';
 
 export interface ProcessingJobStatus {
   id: string;
+  song_id?: string;
   status: string;
   progress_percent: number;
   stage_log: Array<{
@@ -11,6 +12,11 @@ export interface ProcessingJobStatus {
     completed_at?: string;
     result?: string;
   }>;
+}
+
+export async function getSongById(songId: string): Promise<{ id: string; title: string; composer?: string; artist?: string }> {
+  const { data } = await apiClient.get(`/songs/${songId}`);
+  return data;
 }
 
 export async function uploadAudio(file: File, songId?: string): Promise<{ audio_asset_id: string; processing_job_id: string }> {

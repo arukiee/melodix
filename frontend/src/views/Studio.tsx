@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { PracticeWorkspace } from '../components/Studio/PracticeWorkspace';
 import type { PracticeMission, PracticePhase } from '../api/practice';
-import { getPipelineCurriculum } from '../api/audio';
+import { getPipelineCurriculum, getPipelineStatus, getSongById } from '../api/audio';
 import styles from './Studio.module.css';
 
 export function Studio() {
@@ -10,6 +10,7 @@ export function Studio() {
   const { songId: jobId } = useParams<{ songId: string }>(); 
   const [phases, setPhases] = useState<PracticePhase[]>([]);
   const [activeMission, setActiveMission] = useState<PracticeMission | null>(null);
+  const [songTitle, setSongTitle] = useState('AI Curriculum Practice');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,16 +19,29 @@ export function Studio() {
       if (!jobId) return;
       try {
         setIsLoading(true);
-        // Fetch the structured curriculum (Phase 10) instead of flat notes
-        const data = await getPipelineCurriculum(jobId);
-        
-        setPhases(data.phases || []);
-        
-        // Auto-select the first available mission
-        if (data.phases && data.phases.length > 0) {
-          const firstPhase = data.phases[0];
+        const [curriculum, jobStatus] = await Promise.all([
+          getPipelineCurriculum(jobId),
+          getPipelineStatus(jobId).catch(() => null),
+        ]);
+
+        setPhases(curriculum.phases || []);
+
+        if (curriculum.phases && curriculum.phases.length > 0) {
+          const firstPhase = curriculum.phases[0];
           if (firstPhase.missions && firstPhase.missions.length > 0) {
             setActiveMission(firstPhase.missions[0]);
+          }
+        }
+
+        const selectedSongId = jobStatus?.song_id;
+        if (selectedSongId) {
+          try {
+            const song = await getSongById(selectedSongId);
+            if (song?.title) {
+              setSongTitle(song.title);
+            }
+          } catch (songErr) {
+            console.warn('Could not load selected song title for this curriculum:', songErr);
           }
         }
       } catch (err: any) {
@@ -98,7 +112,7 @@ export function Studio() {
         <PracticeWorkspace
           // Force remount when switching missions so the internal timers and recorders reset properly
           key={activeMission.id}
-          songTitle="AI Curriculum Practice"
+          songTitle={songTitle}
           mission={activeMission}
           onBack={() => navigate('/learn')}
           onComplete={() => {
