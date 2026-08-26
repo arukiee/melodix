@@ -159,7 +159,20 @@ class TranscriptionService:
                 logger.info(f"Running Basic Pitch on {audio_asset.original_filename} ({audio_asset.file_size_bytes} bytes)")
     
                 # predict() returns (model_output, midi_data, note_events)
-                model_output, midi_data, note_events = predict(audio_path)
+                # Tuned parameters:
+                # - onset_threshold=0.50 (balanced onset precision for piano attacks)
+                # - frame_threshold=0.30 (suppresses spurious frame noise)
+                # - minimum_note_length=50.0ms (tuned from 58ms to capture fast piano staccato)
+                # - minimum_frequency=80.0Hz (piano low E1 range boundary)
+                # - maximum_frequency=3000.0Hz (piano upper F7 range boundary)
+                model_output, midi_data, note_events = predict(
+                    audio_path,
+                    onset_threshold=0.50,
+                    frame_threshold=0.30,
+                    minimum_note_length=50.0,
+                    minimum_frequency=80.0,
+                    maximum_frequency=3000.0,
+                )
     
                 if not note_events or len(note_events) == 0:
                     raise ValueError(
@@ -366,6 +379,12 @@ class TranscriptionService:
 
         if note_activation is not None:
             try:
+                # Squeeze extra batch dimension if 3D
+                if note_activation.ndim == 3:
+                    note_activation = note_activation[0]
+                if onset_activation is not None and onset_activation.ndim == 3:
+                    onset_activation = onset_activation[0]
+
                 # Convert time to frame indices
                 start_frame = int(start_time * ANNOT_N_FRAMES)
                 end_frame = int(end_time * ANNOT_N_FRAMES)
@@ -403,10 +422,13 @@ class TranscriptionService:
                         return round(max(0.0, confidence), 4)
 
             except (IndexError, ValueError) as e:
-                logger.debug(f"Activation confidence fallback: {e}")
+                logger.warning(f"Error reading Basic Pitch model activations ({e}); falling back to heuristic confidence.")
 
         # Fallback: duration/velocity heuristic
-        # Longer notes with higher velocity are more likely to be real
+        logger.warning(
+            f"Basic Pitch model activations missing or inaccessible for MIDI pitch {midi_pitch} at {start_time:.2f}s; "
+            "falling back to heuristic note confidence score."
+        )
         duration = end_time - start_time
         duration_score = min(1.0, duration / 0.5)  # 0.5s = full score
         velocity_score = min(1.0, midi_pitch / 100.0)  # rough proxy

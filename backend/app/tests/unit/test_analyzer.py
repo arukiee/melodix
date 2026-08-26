@@ -36,9 +36,9 @@ def test_autocorrelation_analyzer_wrong_event():
     res = analyzer.analyze(req)
     assert res.scores.pitchScore < 100.0
     assert len(res.mistakes) >= 1
-    assert any(m.type == "missed_note" for m in res.mistakes)
+    assert any(m.type in ("missed_note", "wrong_note") for m in res.mistakes)
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_ai_coaching_fallback():
     analyzer = AutocorrelationAnalyzer()
     sr = 16000

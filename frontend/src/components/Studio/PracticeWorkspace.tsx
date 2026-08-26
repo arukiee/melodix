@@ -84,6 +84,15 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
   // Results panel tab: 'coach' = AI feedback, 'notes' = per-note comparison table
   const [resultsTab, setResultsTab] = useState<'coach' | 'notes'>('coach');
 
+  // Real lesson playback and progression state
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [demoPlaying, setDemoPlaying] = useState(false);
+  const [demoLoopActive, setDemoLoopActive] = useState(false);
+  const [practiceProgress, setPracticeProgress] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const demoTimersRef = useRef<number[]>([]);
+  const demoLoopIntervalRef = useRef<number | null>(null);
+
   // Measure Practice History tracking
   const [measureHistory, setMeasureHistory] = useState<Record<number, { attempts: number, bestScore: number, lastScore: number, dynamic: string }>>({});
 
@@ -130,6 +139,7 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
     return () => {
       unsub();
       cleanupAudio();
+      stopDemoPlayback();
       if (metronomeRef.current) {
         metronomeRef.current.stop();
       }
@@ -198,7 +208,8 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
       setIsRecording(false);
       setIsPlaying(false);
       
-      // Stop metronome automatically on practice stop
+      // Stop demo loop and metronome
+      stopDemoPlayback();
       if (metronomeRef.current && isMetronomeActive) {
         metronomeRef.current.stop();
         setIsMetronomeActive(false);
@@ -342,12 +353,16 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
         sessionStartRef.current = Date.now();
         startTimelineCursor();
 
-
         // Auto start metronome if setting active during recording
         if (metronomeRef.current && !isMetronomeActive) {
           metronomeRef.current.start(metronomeBpm);
           setIsMetronomeActive(true);
         }
+
+        // Auto start demo loop during practice
+        setTimeout(() => {
+          playDemoSequence(true);
+        }, 500);
       } catch (err) {
         console.error('Microphone access denied or error occurred', err);
         setMicPermission('denied');
@@ -355,6 +370,11 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
         setIsRecording(true);
         setIsPlaying(true);
         setAudioUrl(null);
+        
+        // Still start demo loop for fallback mode
+        setTimeout(() => {
+          playDemoSequence(true);
+        }, 500);
       }
     }
   };
@@ -381,6 +401,147 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
     if (rhythm < 85) return 'Your rhythm shifted slightly. Try playing along with the metronome at a lower tempo.';
     if (tempo < 85) return 'Work on tempo stability. Keep the speed steady from beginning to end.';
     return 'Fantastic performance! Ready to proceed to the next mission.';
+  };
+
+  const expectedEvents = mission.expectedEvents ?? [];
+  const lessonNotes = expectedEvents.filter(event => event.note).map(event => event.note);
+  const displaySequence = lessonNotes.length > 0 ? lessonNotes.slice(0, 4).join(' → ') + (lessonNotes.length > 4 ? ' ...' : '') : 'No expected notes available';
+  const nextExpectedNote = lessonNotes[practiceProgress] || null;
+  const completedNoteCount = Math.min(practiceProgress, lessonNotes.length);
+  const isSectionComplete = lessonNotes.length > 0 && practiceProgress >= lessonNotes.length;
+
+  const normalizeNote = (note: string) => note.trim().toUpperCase();
+
+  const stopDemoPlayback = () => {
+    demoTimersRef.current.forEach(timer => clearTimeout(timer));
+    demoTimersRef.current = [];
+    if (demoLoopIntervalRef.current) {
+      clearInterval(demoLoopIntervalRef.current);
+      demoLoopIntervalRef.current = null;
+    }
+    setDemoPlaying(false);
+    setDemoLoopActive(false);
+    setHighlightedNotes([]);
+  };
+
+  const playDemoSequence = async (shouldLoop: boolean = false) => {
+    if (!expectedEvents.length) return;
+    if (demoPlaying && !shouldLoop) {
+      stopDemoPlayback();
+      return;
+    }
+
+    const playableEvents = expectedEvents.filter(event => !!event.note);
+    if (!playableEvents.length) return;
+
+    await import('../../services/audioEngine').then(({ audioEngine }) => audioEngine.init());
+
+    if (shouldLoop && !demoLoopActive) {
+      setDemoLoopActive(true);
+      setFeedbackMessage('Demo looping — follow along...');
+      
+      const playOnce = async () => {
+        setDemoPlaying(true);
+        playableEvents.forEach((event, index) => {
+          const offsetMs = ((event.relative_time || 0) * 1000) / playbackRate;
+          const timer = window.setTimeout(async () => {
+            const note = event.note;
+            setHighlightedNotes([note]);
+            try {
+              const { audioEngine } = await import('../../services/audioEngine');
+              await audioEngine.init();
+              audioEngine.playNote(note, 1, Math.max(0.3, event.duration || 0.5));
+            } catch (error) {
+              console.error('Demo playback failed', error);
+            }
+
+            if (index === playableEvents.length - 1) {
+              window.setTimeout(() => {
+                setHighlightedNotes([]);
+                setDemoPlaying(false);
+              }, 200);
+            }
+          }, offsetMs);
+          demoTimersRef.current.push(timer);
+        });
+      };
+
+      // Calculate total duration of the sequence
+      const lastEvent = playableEvents[playableEvents.length - 1];
+      const sequenceDurationMs = ((lastEvent.relative_time || 0) * 1000 + (lastEvent.duration || 0.5) * 1000 + 500) / playbackRate;
+
+      // Play once immediately
+      await playOnce();
+
+      // Setup loop interval
+      demoLoopIntervalRef.current = window.setInterval(async () => {
+        // Clear any pending timers
+        demoTimersRef.current.forEach(timer => clearTimeout(timer));
+        demoTimersRef.current = [];
+        await playOnce();
+      }, sequenceDurationMs);
+    } else if (!shouldLoop) {
+      // Single playback
+      stopDemoPlayback();
+      setDemoPlaying(true);
+      setFeedbackMessage('Listening to the example...');
+
+      playableEvents.forEach((event, index) => {
+        const offsetMs = ((event.relative_time || 0) * 1000) / playbackRate;
+        const timer = window.setTimeout(async () => {
+          const note = event.note;
+          setHighlightedNotes([note]);
+          try {
+            const { audioEngine } = await import('../../services/audioEngine');
+            await audioEngine.init();
+            audioEngine.playNote(note, 1, Math.max(0.3, event.duration || 0.5));
+          } catch (error) {
+            console.error('Demo playback failed', error);
+          }
+
+          if (index === playableEvents.length - 1) {
+            window.setTimeout(() => {
+              setDemoPlaying(false);
+              setHighlightedNotes([]);
+            }, 200);
+          }
+        }, offsetMs);
+        demoTimersRef.current.push(timer);
+      });
+    }
+  };
+
+  const handleUserProgressNote = async (playedNote: string) => {
+    if (!lessonNotes.length) return;
+
+    const targetNote = lessonNotes[practiceProgress];
+    if (!targetNote) {
+      setFeedbackMessage('Section complete — great job!');
+      return;
+    }
+
+    const normalizedPlayed = normalizeNote(playedNote);
+    const normalizedTarget = normalizeNote(targetNote);
+
+    if (normalizedPlayed === normalizedTarget) {
+      const nextProgress = practiceProgress + 1;
+      setPracticeProgress(nextProgress);
+      setFeedbackMessage(`✓ Correct — ${normalizedTarget}`);
+      setHighlightedNotes([targetNote]);
+      if (nextProgress < lessonNotes.length) {
+        setTimeout(() => setHighlightedNotes([]), 500);
+      }
+      return;
+    }
+
+    setFeedbackMessage(`✗ Try again. Expected ${normalizedTarget}, you played ${normalizedPlayed}.`);
+    try {
+      const { audioEngine } = await import('../../services/audioEngine');
+      await audioEngine.init();
+      audioEngine.playNote(targetNote, 1, 0.4);
+    } catch (error) {
+      console.error('Hint playback failed', error);
+    }
   };
 
   return (
@@ -869,20 +1030,158 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
           {/* Interactive Studio Workspace (Sheet Music + Piano Keyboard visualization) */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             
-            {/* Chord Strip Component */}
             <div style={{ width: '100%' }}>
-              <ChordStrip 
-                chords={[
-                  { name: 'C Major', notes: ['C4', 'E4', 'G4'], fingering: '1-3-5', difficulty: 'easy' },
-                  { name: 'F Major', notes: ['F4', 'A4', 'C5'], fingering: '1-3-5', difficulty: 'medium' },
-                  { name: 'G Major', notes: ['G4', 'B4', 'D5'], fingering: '1-3-5', difficulty: 'easy' },
-                ]} 
-                onChordClick={(chord) => {
-                  setHighlightedNotes(chord.notes);
-                  // clear highlight after a short delay
-                  setTimeout(() => setHighlightedNotes([]), 1500);
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(168,85,247,0.08))',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-card)',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
                 }}
-              />
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent-primary)', fontWeight: 700 }}>
+                      {mission.type === 'performance' ? 'Performance' : 'Lesson'}
+                    </div>
+                    <h3 style={{ margin: '6px 0 0', fontSize: '1.3rem' }}>{mission.title}</h3>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    {mission.bpm || 72} BPM • {lessonNotes.length || 0} notes
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    What to play
+                  </div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 800, letterSpacing: '0.04em', wordBreak: 'break-word', lineHeight: '1.4' }}>
+                    {displaySequence}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => playDemoSequence()}
+                      style={{
+                        padding: '10px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'var(--accent-primary)',
+                        color: 'white',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {demoPlaying ? 'Stop Demo' : '▶ Play Example'}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (demoLoopActive) {
+                          stopDemoPlayback();
+                        } else {
+                          playDemoSequence(true);
+                        }
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        background: demoLoopActive ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+                        color: demoLoopActive ? 'var(--accent-primary)' : 'var(--text-primary)',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                      }}
+                    >
+                      🔁 {demoLoopActive ? 'Looping' : 'Loop'}
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Speed</span>
+                    {[0.5, 0.75, 1, 1.25].map(rate => (
+                      <button
+                        key={rate}
+                        onClick={() => setPlaybackRate(rate)}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          background: playbackRate === rate ? 'var(--accent-primary)' : 'var(--bg-card)',
+                          color: playbackRate === rate ? 'white' : 'var(--text-primary)',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: playbackRate === rate ? 600 : 500,
+                        }}
+                      >
+                        {rate * 100}%
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Your turn
+                  </div>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+                    {nextExpectedNote ? `Next note: ${nextExpectedNote}` : 'Section complete'}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', maxHeight: '60px', overflowY: 'auto' }}>
+                    {lessonNotes.slice(0, 12).map((note, idx) => (
+                      <div
+                        key={`${note}-${idx}`}
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '999px',
+                          background: idx < completedNoteCount ? 'rgba(16,185,129,0.15)' : idx === practiceProgress ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
+                          border: idx === practiceProgress ? '1px solid rgba(59,130,246,0.5)' : '1px solid var(--border-color)',
+                          color: idx < completedNoteCount ? '#10b981' : 'var(--text-primary)',
+                          fontWeight: idx === practiceProgress ? 700 : 500,
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        {note}
+                      </div>
+                    ))}
+                    {lessonNotes.length > 12 && (
+                      <div
+                        style={{
+                          padding: '5px 10px',
+                          borderRadius: '999px',
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.85rem',
+                          fontWeight: 500,
+                        }}
+                      >
+                        +{lessonNotes.length - 12} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {feedbackMessage && (
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(59,130,246,0.25)',
+                      background: 'rgba(59,130,246,0.08)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    {feedbackMessage}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Listen First Controls */}
@@ -899,7 +1198,6 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
               onCountInToggle={() => {}}
             />
 
-            {/* Mock Sheet Music component */}
             <div
               style={{
                 height: '420px',
@@ -965,7 +1263,8 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
               <PianoKeyboard 
                 isPlaying={isPlaying} 
                 timelineNotes={timelineNotes}
-                highlightNotes={highlightedNotes} 
+                highlightNotes={highlightedNotes}
+                onNotePlay={handleUserProgressNote}
               />
             </div>
           </div>

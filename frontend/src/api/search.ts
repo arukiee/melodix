@@ -39,7 +39,9 @@ export const searchApi = {
       id: result.id,
       title: result.title,
       artist: result.artist,
-      provider: result.provider
+      provider: result.provider,
+      // Pass video ID so backend stores the YouTube URL for audio download
+      youtube_id: result.provider === 'YouTube' ? result.id : '',
     });
     return response.data;
   }

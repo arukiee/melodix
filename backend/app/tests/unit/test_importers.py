@@ -4,17 +4,19 @@ from app.services.music_engine.importers.midi_importer import MIDIImporter
 from app.services.music_engine.converters.timeline_builder import TimelineBuilder
 from app.services.music_engine.converters.mission_builder import MissionBuilder
 
+from fastapi import HTTPException
+
 def test_musicxml_importer_fallback():
     importer = MusicXMLImporter()
-    res = importer.parse(b"invalid xml")
-    assert res["title"] == "Mary Had a Little Lamb"
-    assert len(res["notes"]) > 0
+    with pytest.raises(HTTPException) as exc_info:
+        importer.parse(b"invalid xml")
+    assert exc_info.value.status_code == 400
 
 def test_midi_importer_fallback():
     importer = MIDIImporter()
-    res = importer.parse(b"invalid midi header")
-    assert res["title"] == "Twinkle Twinkle Little Star"
-    assert len(res["notes"]) > 0
+    with pytest.raises(HTTPException) as exc_info:
+        importer.parse(b"invalid midi header")
+    assert exc_info.value.status_code == 400
 
 def test_timeline_builder():
     parsed = {

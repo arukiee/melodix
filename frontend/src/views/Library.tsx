@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, ArrowLeft, Clock, Music, Loader2 } from 'lucide-react';
+import { ArrowLeft, Clock, Music, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { apiClient } from '../api/client';
@@ -22,7 +22,7 @@ interface SongItem {
 export function Library() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery] = useState('');
   const [songs, setSongs] = useState<SongItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

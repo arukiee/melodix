@@ -1,13 +1,86 @@
 import { apiClient } from './client';
 
-export type MissionType = 'listen' | 'right_hand' | 'left_hand' | 'both_hands' | 'tempo' | 'performance';
+export type MissionType =
+  | 'listen' | 'right_hand' | 'left_hand' | 'both_hands'
+  | 'tempo' | 'performance'
+  | 'phrase_learn' | 'phrase_practice';  // Level 3 phrase loop missions
+
 export type MissionStatus = 'locked' | 'available' | 'in_progress' | 'completed';
 
 export interface ExpectedEvent {
+  id?: string;            // optional stable ID for lyric-event linking
   note: string;
   relative_time: number;
   duration: number;
+  hand?: 'right' | 'left';
 }
+
+// ---------------------------------------------------------------------------
+// Lyric alignment types
+// ---------------------------------------------------------------------------
+
+/** How precisely lyrics were matched to notes. */
+export type LyricAlignmentLevel = 'syllable' | 'word' | 'line' | 'none';
+
+/** One syllable/word/line chunk aligned to one or more note events. */
+export interface LyricSyllable {
+  text: string;
+  alignmentLevel: LyricAlignmentLevel;
+  noteEventIds: string[];    // IDs of ExpectedEvents this chunk covers
+  startTick?: number;
+  endTick?: number;
+}
+
+/**
+ * Song-level lyric alignment — stored once at the session level,
+ * NOT duplicated inside every mission.
+ */
+export interface LyricAlignment {
+  alignmentLevel: LyricAlignmentLevel;  // worst-case level across syllables
+  confidence: number;                    // 0.0 – 1.0
+  syllables: LyricSyllable[];
+}
+
+// ---------------------------------------------------------------------------
+// Phrase types
+// ---------------------------------------------------------------------------
+
+/** Why a phrase boundary was placed here. */
+export type PhraseBoundaryReason =
+  | 'lyric_clause'    // syllable set ends with , . ? !
+  | 'measure'         // measure number changed
+  | 'rest'            // gap between notes > 0.3 s
+  | 'long_note'       // note duration > 1.5× average
+  | 'max_count';      // fallback: 8-note hard cap
+
+/** A musically-bounded phrase ready for Listen / Watch / Play cycle. */
+export interface SongPhrase {
+  id: string;
+  phraseIndex: number;
+  phraseTotal: number;
+  boundaryReason: PhraseBoundaryReason;
+  expectedEvents: ExpectedEvent[];
+  lyricSyllables?: LyricSyllable[];   // subset of song-level alignment
+}
+
+// ---------------------------------------------------------------------------
+// Learning level types
+// ---------------------------------------------------------------------------
+
+export interface LearningLevel {
+  id: string;
+  levelNumber: number;          // 1–7
+  title: string;
+  learningMode: 'learn' | 'practice' | 'perform';
+  handMode: 'right' | 'left' | 'both';
+  progressionMode: 'wait' | 'timed';
+  simplified: boolean;          // true for levels 5 & 6
+  missions: PracticeMission[];
+}
+
+// ---------------------------------------------------------------------------
+// Mission & session types (existing, extended)
+// ---------------------------------------------------------------------------
 
 export interface PracticeMission {
   id: string;
@@ -22,6 +95,12 @@ export interface PracticeMission {
   steps?: any[];
   expectedNotes?: string[];
   expectedEvents?: ExpectedEvent[];
+  // New progressive-learning fields
+  levelNumber?: number;
+  progressionMode?: 'wait' | 'timed';
+  handMode?: 'right' | 'left' | 'both';
+  phraseRef?: string;               // SongPhrase.id if phrase mission
+  simplified?: boolean;
 }
 
 export interface PracticePhase {
@@ -33,8 +112,13 @@ export interface PracticePhase {
 export interface PracticeSessionResponse {
   lesson_id: string;
   overall_progress: number;
-  phases: PracticePhase[];
+  phases: PracticePhase[];          // existing sidebar navigation
+  // New: 7-level progressive curriculum
+  levels?: LearningLevel[];
+  lyricAlignment?: LyricAlignment;  // song-level lyrics (not per-mission)
+  phrases?: SongPhrase[];           // musically-bounded phrase list
 }
+
 
 export interface AnalysisMistake {
   timestamp: number;

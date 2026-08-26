@@ -163,8 +163,7 @@ class YouTubeProvider(BaseSearchProvider):
 
     async def _search_via_ytdlp(self, query: str, limit: int) -> List[SearchResult]:
         try:
-            yt_dlp_path = 'yt-dlp'
-            cmd = [yt_dlp_path, f'ytsearch{limit}:{query}', '--dump-json', '--no-warnings', '--flat-playlist']
+            cmd = ['python3', '-m', 'yt_dlp', f'ytsearch{limit}:{query}', '--dump-json', '--no-warnings', '--flat-playlist']
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -209,8 +208,7 @@ class YouTubeProvider(BaseSearchProvider):
         for the YouTubeImporter pipeline to analyze.
         """
         try:
-            yt_dlp_path = 'yt-dlp'
-            cmd = [yt_dlp_path, f'https://www.youtube.com/watch?v={item_id}', '--dump-json', '--no-warnings', '--flat-playlist']
+            cmd = ['python3', '-m', 'yt_dlp', f'https://www.youtube.com/watch?v={item_id}', '--dump-json', '--no-warnings', '--flat-playlist']
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,

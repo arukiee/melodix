@@ -98,7 +98,7 @@ export function SheetMusic({ timelineNotes = [], currentMeasureIndex = 0, notati
                             height: '16px',
                             backgroundColor: getNoteColor(n.status),
                             borderRadius: '8px',
-                            opacity: n.status === 'pending' ? 0.4 : 1
+                            opacity: n.status === 'upcoming' ? 0.4 : 1
                           } : {})
                         }}
                       >
@@ -169,7 +169,7 @@ export function SheetMusic({ timelineNotes = [], currentMeasureIndex = 0, notati
                             height: '16px',
                             backgroundColor: getNoteColor(n.status),
                             borderRadius: '8px',
-                            opacity: n.status === 'pending' ? 0.4 : 1
+                            opacity: n.status === 'upcoming' ? 0.4 : 1
                           } : {})
                         }}
                       >

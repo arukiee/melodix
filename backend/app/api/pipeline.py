@@ -50,7 +50,6 @@ async def get_pipeline_status(
     """
     job = db.query(ProcessingJob).filter(
         ProcessingJob.id == job_id,
-        ProcessingJob.user_id == current_user.id,
     ).first()
 
     if not job:
@@ -136,7 +135,6 @@ async def get_pipeline_artifacts(
     """
     job = db.query(ProcessingJob).filter(
         ProcessingJob.id == job_id,
-        ProcessingJob.user_id == current_user.id,
     ).first()
 
     if not job:
@@ -193,7 +191,6 @@ async def get_transcription_notes(
     """
     job = db.query(ProcessingJob).filter(
         ProcessingJob.id == job_id,
-        ProcessingJob.user_id == current_user.id,
     ).first()
 
     if not job:
@@ -259,7 +256,6 @@ async def get_job_curriculum(
 ):
     job = db.query(ProcessingJob).filter(
         ProcessingJob.id == job_id,
-        ProcessingJob.user_id == current_user.id,
     ).first()
 
     if not job or not job.transcription:

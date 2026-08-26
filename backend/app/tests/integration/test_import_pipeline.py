@@ -9,8 +9,19 @@ from fastapi.testclient import TestClient
 
 from app.factory import create_app
 from app.core.database import get_db
+from app.api.deps import get_current_user
+from app.models.user import User
+import uuid
 
 app = create_app()
+
+app.dependency_overrides[get_current_user] = lambda: User(
+    id=uuid.uuid4(),
+    email="admin@melodix.com",
+    full_name="Admin User",
+    role="ADMIN",
+    is_active=True
+)
 
 # ─── Helpers ───────────────────────────────────────────────
 
@@ -72,24 +83,20 @@ class TestPreviewEndpoint:
         assert len(data["detected_chords"]) >= 1
 
     def test_valid_midi_preview(self):
-        """MIDI upload falls through to mock parser, returning a valid preview."""
+        """Invalid/partial MIDI should be rejected with 400."""
         resp = client.post(
             "/api/v1/import/preview",
             files={"file": ("song.mid", io.BytesIO(VALID_MIDI_HEADER), "audio/midi")}
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["title"] == "MIDI Imported Song"
-        assert data["note_count"] >= 1
+        assert resp.status_code == 400
 
     def test_corrupt_xml_preview(self):
-        """Corrupt XML falls back to mock importer — no crash."""
+        """Corrupt XML should be rejected with 400."""
         resp = client.post(
             "/api/v1/import/preview",
             files={"file": ("bad.xml", io.BytesIO(CORRUPT_XML), "application/xml")}
         )
-        # MusicXMLImporter falls back to mock, so still 200
-        assert resp.status_code == 200
+        assert resp.status_code == 400
 
     def test_empty_file_rejected(self):
         """Empty file should be rejected with 400."""
@@ -182,7 +189,7 @@ class TestCommitEndpoint:
             mock_session.add.assert_called_once()
             mock_session.commit.assert_called()
         finally:
-            app.dependency_overrides.clear()
+            app.dependency_overrides.pop(get_db, None)
 
     def test_commit_empty_file_rejected(self):
         """Empty file should not reach commit logic."""

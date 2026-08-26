@@ -6,16 +6,18 @@ class LiveNoteDetector {
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private stream: MediaStream | null = null;
-  private detector: PitchDetector<Float32Array> | null = null;
-  private inputBuffer: Float32Array | null = null;
+  private detector: PitchDetector<Float32Array<ArrayBuffer>> | null = null;
+  private inputBuffer: Float32Array<ArrayBuffer> | null = null;
   private animationFrameId: number | null = null;
   private callbacks: Set<NoteDetectionCallback> = new Set();
   
   private isListening = false;
 
-  subscribe(cb: NoteDetectionCallback) {
+  subscribe(cb: NoteDetectionCallback): () => void {
     this.callbacks.add(cb);
-    return () => this.callbacks.delete(cb);
+    return () => {
+      this.callbacks.delete(cb);
+    };
   }
 
   async startListening() {
@@ -30,8 +32,8 @@ class LiveNoteDetector {
       const source = this.audioContext.createMediaStreamSource(this.stream);
       source.connect(this.analyser);
 
-      this.detector = PitchDetector.forFloat32Array(this.analyser.fftSize);
-      this.inputBuffer = new Float32Array(this.detector.inputLength);
+      this.detector = PitchDetector.forFloat32Array(this.analyser.fftSize) as PitchDetector<Float32Array<ArrayBuffer>>;
+      this.inputBuffer = new Float32Array(this.detector.inputLength) as Float32Array<ArrayBuffer>;
 
       this.isListening = true;
       this.detectPitch();
@@ -64,7 +66,7 @@ class LiveNoteDetector {
   private detectPitch = () => {
     if (!this.isListening || !this.analyser || !this.detector || !this.inputBuffer || !this.audioContext) return;
 
-    this.analyser.getFloatTimeDomainData(this.inputBuffer);
+    this.analyser.getFloatTimeDomainData(this.inputBuffer as Float32Array<ArrayBuffer>);
     
     // Calculate volume to avoid triggering on background noise
     let sum = 0;

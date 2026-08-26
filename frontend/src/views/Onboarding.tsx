@@ -263,10 +263,7 @@ export function Onboarding() {
 
   const renderInstrument = () => {
     // Determine which instruments to show based on role
-    const filtered = instruments.filter(inst => {
-      // For teachers, we could have a flag; assume all instruments are available for both for now
-      return true;
-    });
+    const filtered = instruments.filter(() => true);
     const options = isTeacher ? filtered : filtered;
 
     return (

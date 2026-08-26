@@ -32,7 +32,7 @@ import { Leaderboards } from './views/Leaderboards';
 
 function AppRoutes() {
   const { profile, isAuthenticated, isLoading } = useUser();
-  const { activeRole, isOnboardingComplete } = profile;
+  const { activeRole } = profile;
 
   // Show nothing while restoring session
   if (isLoading) {

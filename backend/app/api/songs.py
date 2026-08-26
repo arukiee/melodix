@@ -48,6 +48,7 @@ class ImportSearchRequest(BaseModel):
     title: str
     artist: str
     provider: str
+    youtube_id: str = ""   # video ID passed through for YouTube imports
 
 from app.api.import_song import _run_pipeline
 from app.schemas.import_schema import ImportCommitResponse
@@ -109,6 +110,9 @@ async def import_from_search(
         existing.sections = parsed.get("sections", [])
         existing.steps = parsed.get("steps", [])
         existing.adaptive_thresholds = parsed.get("adaptive_thresholds", {})
+        # Persist YouTube video ID so source discovery can download audio later
+        if request.provider == "YouTube" and request.youtube_id:
+            existing.file_url = f"https://www.youtube.com/watch?v={request.youtube_id}"
         db.commit()
         return ImportCommitResponse(
             success=True, song_id=str(existing.id),
@@ -131,7 +135,13 @@ async def import_from_search(
         missions=missions,
         sections=parsed.get("sections", []),
         steps=parsed.get("steps", []),
-        adaptive_thresholds=parsed.get("adaptive_thresholds", {})
+        adaptive_thresholds=parsed.get("adaptive_thresholds", {}),
+        # Store YouTube video URL so source discovery can download audio
+        file_url=(
+            f"https://www.youtube.com/watch?v={request.youtube_id}"
+            if request.provider == "YouTube" and request.youtube_id
+            else None
+        ),
     )
     db.add(new_song)
     db.commit()

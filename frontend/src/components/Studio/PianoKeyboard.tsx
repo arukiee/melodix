@@ -81,7 +81,7 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
     window.addEventListener('keyup', handleKeyUp);
 
     // MIDI Support
-    const handleMidiMessage = async (message: WebMidi.MIDIMessageEvent) => {
+    const handleMidiMessage = async (message: any) => {
       const [command, note, velocity] = message.data;
       if (command === 144 && velocity > 0) { // Note on
         const index = note - 24; // C4 is 60 in MIDI, 36 in our index. 60 - 24 = 36.

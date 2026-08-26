@@ -24,10 +24,19 @@ from typing import Dict, Any, Optional
 
 import numpy as np
 from sqlalchemy.orm import Session
-
 from app.models.audio_asset import AudioAsset
 
 logger = logging.getLogger(__name__)
+
+
+class BPMResult(dict):
+    """Subclass of dict to support attribute access (e.g. result.tempo_bpm) in unit tests."""
+    def __getattr__(self, name):
+        if name in self:
+            return self[name]
+        raise AttributeError(f"'BPMResult' object has no attribute '{name}'")
+    def __setattr__(self, name, value):
+        self[name] = value
 
 
 class BPMDetector:
@@ -47,7 +56,7 @@ class BPMDetector:
 
     ENGINE_VERSION = "1.0.0"
 
-    def detect(self, audio_asset: AudioAsset, db: Session) -> Dict[str, Any]:
+    def detect(self, audio_asset: AudioAsset, db: Session) -> BPMResult:
         """
         Detect BPM and beat positions from an audio asset.
         
@@ -70,72 +79,78 @@ class BPMDetector:
         try:
             # librosa loads and resamples
             y, sr = librosa.load(audio_path, sr=22050, mono=True)
-
-            if len(y) < sr:
-                return {
-                    "tempo_bpm": 0.0,
-                    "beat_times": [],
-                    "confidence": 0.0,
-                    "time_signature": "4/4",
-                    "method": "librosa_beat_track",
-                    "engine_version": self.ENGINE_VERSION,
-                    "warning": "Audio too short for reliable tempo detection.",
-                }
-
-            # ── 2. Onset strength envelope ────────────────────────────────
-            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-
-            # ── 3. Beat tracking ──────────────────────────────────────────
-            # Returns: tempo (float), beat_frames (ndarray)
-            tempo, beat_frames = librosa.beat.beat_track(
-                y=y, sr=sr, onset_envelope=onset_env
-            )
-
-            # Convert beat frames to times
-            beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
-
-            # Handle librosa returning tempo as array in some versions
-            if hasattr(tempo, '__len__'):
-                tempo = float(tempo[0]) if len(tempo) > 0 else 0.0
-            else:
-                tempo = float(tempo)
-
-            # ── 4. Melodix confidence computation ─────────────────────────
-            confidence = self._compute_confidence(
-                tempo, beat_times, onset_env, sr
-            )
-
-            # ── 5. Estimate time signature ────────────────────────────────
-            time_signature = self._estimate_time_signature(beat_times, onset_env, sr)
-
-            result = {
-                "tempo_bpm": round(tempo, 2),
-                "beat_times": [round(t, 4) for t in beat_times],
-                "confidence": round(confidence, 4),
-                "time_signature": time_signature,
-                "method": "librosa_beat_track",
-                "engine_version": self.ENGINE_VERSION,
-            }
-
-            # Add warning if confidence is low
-            if confidence < 0.5:
-                result["warning"] = (
-                    f"Tempo detection uncertain (confidence: {confidence:.2f}). "
-                    f"BPM estimate of {tempo:.1f} may not be reliable."
-                )
-
-            logger.info(
-                f"BPM detected: {tempo:.1f} BPM, "
-                f"confidence={confidence:.2f}, "
-                f"beats={len(beat_times)}, "
-                f"time_sig={time_signature}"
-            )
-
-            return result
-
+            return self.detect_bpm(y, sr)
         finally:
             if os.path.exists(audio_path):
                 os.unlink(audio_path)
+
+    def detect_bpm(self, y: np.ndarray, sr: int) -> BPMResult:
+        """
+        Detect BPM and beat positions from a raw NumPy audio array.
+        """
+        import librosa
+
+        if len(y) < sr:
+            return BPMResult({
+                "tempo_bpm": 0.0,
+                "beat_times": [],
+                "confidence": 0.0,
+                "time_signature": "4/4",
+                "method": "librosa_beat_track",
+                "engine_version": self.ENGINE_VERSION,
+                "warning": "Audio too short for reliable tempo detection.",
+            })
+
+        # ── 2. Onset strength envelope ────────────────────────────────
+        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+
+        # ── 3. Beat tracking ──────────────────────────────────────────
+        # Returns: tempo (float), beat_frames (ndarray)
+        tempo, beat_frames = librosa.beat.beat_track(
+            y=y, sr=sr, onset_envelope=onset_env
+        )
+
+        # Convert beat frames to times
+        beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
+
+        # Handle librosa returning tempo as array in some versions
+        if hasattr(tempo, '__len__'):
+            tempo = float(tempo[0]) if len(tempo) > 0 else 0.0
+        else:
+            tempo = float(tempo)
+
+        # ── 4. Melodix confidence computation ─────────────────────────
+        confidence = self._compute_confidence(
+            tempo, beat_times, onset_env, sr
+        )
+
+        # ── 5. Estimate time signature ────────────────────────────────
+        time_signature = self._estimate_time_signature(beat_times, onset_env, sr)
+
+        result = BPMResult({
+            "tempo_bpm": round(tempo, 2),
+            "beat_times": [round(t, 4) for t in beat_times],
+            "confidence": round(confidence, 4),
+            "time_signature": time_signature,
+            "method": "librosa_beat_track",
+            "engine_version": self.ENGINE_VERSION,
+        })
+
+        # Add warning if confidence is low
+        if confidence < 0.5:
+            result["warning"] = (
+                f"Tempo detection uncertain (confidence: {confidence:.2f}). "
+                f"BPM estimate of {tempo:.1f} may not be reliable."
+            )
+
+        logger.info(
+            f"BPM detected: {tempo:.1f} BPM, "
+            f"confidence={confidence:.2f}, "
+            f"beats={len(beat_times)}, "
+            f"time_sig={time_signature}"
+        )
+
+        return result
 
     def _compute_confidence(
         self,

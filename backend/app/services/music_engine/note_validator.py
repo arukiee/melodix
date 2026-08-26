@@ -91,10 +91,11 @@ class NoteValidator:
             current = active_notes[i]
             next_note = active_notes[i + 1]
 
-            # Same pitch, close together → merge
+            gap = next_note.start_time - current.end_time
+            # Same pitch, sequential (non-overlapping) fragment with small gap → merge
             if (
                 current.midi_number == next_note.midi_number
-                and (next_note.start_time - current.end_time) < self.MERGE_GAP_THRESHOLD
+                and 0 <= gap < self.MERGE_GAP_THRESHOLD
             ):
                 # Extend current note to cover both
                 current.end_time = max(current.end_time, next_note.end_time)
@@ -104,7 +105,7 @@ class NoteValidator:
                 current.validation_action = ValidationAction.MERGE.value
                 current.validation_reason = (
                     f"Merged with following {next_note.note_name} "
-                    f"(gap: {(next_note.start_time - current.end_time)*1000:.0f}ms). "
+                    f"(gap: {gap*1000:.0f}ms). "
                     f"New duration: {current.duration*1000:.0f}ms."
                 )
                 current.is_validated = True
@@ -124,7 +125,7 @@ class NoteValidator:
             else:
                 i += 1
 
-        # ── Pass 3: Overlapping same-pitch detection ──────────────────────
+        # ── Pass 3: Overlapping same-pitch near-duplicate detection ──────────
         active_notes = [n for n in notes if n.validation_action != ValidationAction.DISCARD.value]
         for i in range(len(active_notes)):
             for j in range(i + 1, len(active_notes)):
@@ -132,21 +133,25 @@ class NoteValidator:
                 if b.start_time >= a.end_time:
                     break  # no more overlaps possible
                 if a.midi_number == b.midi_number:
-                    # Same pitch overlapping → merge into the earlier note
-                    a.end_time = max(a.end_time, b.end_time)
-                    a.duration = a.end_time - a.start_time
-                    a.confidence = max(a.confidence, b.confidence)
-                    a.validation_action = ValidationAction.MERGE.value
-                    a.validation_reason = (
-                        f"Merged with overlapping {b.note_name} at "
-                        f"{b.start_time:.3f}s. Duplicate detection."
-                    )
-                    a.is_validated = True
+                    # Check if b is a near-identical duplicate onset artifact (<30ms start/end delta)
+                    start_delta = abs(b.start_time - a.start_time)
+                    end_delta = abs(b.end_time - a.end_time)
 
-                    b.validation_action = ValidationAction.DISCARD.value
-                    b.validation_reason = "Overlapping duplicate — merged into earlier note."
-                    b.is_validated = True
-                    stats["discarded"] += 1
+                    if start_delta < 0.030 and end_delta < 0.030:
+                        a.end_time = max(a.end_time, b.end_time)
+                        a.duration = a.end_time - a.start_time
+                        a.confidence = max(a.confidence, b.confidence)
+                        a.validation_action = ValidationAction.MERGE.value
+                        a.validation_reason = (
+                            f"Merged with duplicate {b.note_name} at "
+                            f"{b.start_time:.3f}s. Near-identical model artifact."
+                        )
+                        a.is_validated = True
+
+                        b.validation_action = ValidationAction.DISCARD.value
+                        b.validation_reason = "Near-identical duplicate model artifact — discarded."
+                        b.is_validated = True
+                        stats["discarded"] += 1
 
         # ── Pass 4: Large jump detection (FLAG, not auto-delete) ──────────
         active_notes = [

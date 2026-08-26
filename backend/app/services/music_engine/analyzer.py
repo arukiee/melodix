@@ -90,7 +90,7 @@ def detect_onsets(audio: np.ndarray, sr: int, hop_ms: int = 10) -> List[float]:
 
     rms_arr = np.array(rms_values)
     # Spectral flux: positive delta only (note attacks go up, not down)
-    delta = np.diff(rms_arr, prepend=rms_arr[0])
+    delta = np.diff(rms_arr, prepend=0.0)
     delta = np.maximum(delta, 0)
 
     # Adaptive threshold: mean + 1.5 × std of positive deltas
@@ -154,7 +154,9 @@ def segment_notes_by_onset(
         # Determine actual note end: look for silence within the segment
         actual_end_sample = end_sample
         check_hop = int(0.02 * sr)  # 20ms windows
-        for j in range(onset_sample, end_sample - check_hop, check_hop):
+        # Start searching 50ms after onset to bypass attack phase
+        search_start = min(onset_sample + int(0.05 * sr), end_sample - check_hop)
+        for j in range(search_start, end_sample - check_hop, check_hop):
             chunk = audio[j: j + check_hop]
             if np.sqrt(np.mean(chunk ** 2)) < silence_threshold:
                 actual_end_sample = j
@@ -207,13 +209,17 @@ class PerformanceScoringEngine:
     ) -> Tuple[ScoreBreakdown, TempoMetrics, List[AnalysisMistake], Dict[int, float], List[NoteComparisonEvent], Dict]:
         mistakes: List[AnalysisMistake] = []
         comparison_table: List[NoteComparisonEvent] = []
-        pitch_score = 100.0
-        rhythm_score = 100.0
-        duration_score = 100.0
-        tempo_score = 100.0
         correct_count = 0
         wrong_count = 0
         missed_count = 0
+        extra_count = 0
+
+        total_notes = len(expected)
+
+        # Accumulators for note-level evaluation (scaling with total expected notes)
+        pitch_weight_sum = 0.0
+        rhythm_weight_sum = 0.0
+        duration_weight_sum = 0.0
 
         # ── 1. Tempo metrics ──────────────────────────────────────────────────
         detected_bpms = []
@@ -227,7 +233,12 @@ class PerformanceScoringEngine:
         bpm_variance = float(np.std(detected_bpms)) if len(detected_bpms) > 1 else 0.0
         drift = avg_bpm - target_bpm
         stability = max(0.0, 100.0 - (bpm_variance * 5.0))
-        tempo_score = max(30.0, stability - min(30.0, abs(drift) * 2.0))
+        
+        # If no/few notes detected, tempo score is 0. Otherwise, compute dynamically.
+        if len(detected_events) <= 1:
+            tempo_score = 0.0
+        else:
+            tempo_score = max(0.0, stability - min(30.0, abs(drift) * 2.0))
 
         # ── 2. Note-level matching ────────────────────────────────────────────
         matched_det_indices: set = set()
@@ -239,13 +250,12 @@ class PerformanceScoringEngine:
             for i, det in enumerate(detected_events):
                 if i in matched_det_indices:
                     continue
-                # Consider it a candidate if note matches OR it's within timing window
                 note_match = (det.note == exp.note)
                 time_diff = abs(det.start_time - exp.relative_time)
-                if time_diff > 2.0:  # too far away to be this note
+                if time_diff > 0.4:  # do not match notes from adjacent/other beats
                     continue
-                # Score candidates: prefer exact note + close timing
-                candidate_score = (1.0 if note_match else 0.0) + (1.0 / (1.0 + time_diff))
+                # Score candidates: prefer exact note + close timing (prevent hijacking)
+                candidate_score = (0.5 if note_match else 0.0) + (1.0 / (1.0 + time_diff * 2.0))
                 if candidate_score > best_score:
                     best_score = candidate_score
                     best_idx = i
@@ -253,7 +263,6 @@ class PerformanceScoringEngine:
             if best_idx == -1:
                 # Missed note — no detected event matched at all
                 missed_count += 1
-                pitch_score = max(20.0, pitch_score - 25.0)
                 mistakes.append(AnalysisMistake(
                     timestamp=exp.relative_time,
                     type="missed_note",
@@ -271,15 +280,61 @@ class PerformanceScoringEngine:
                     duration_delta_ms=None,
                     cents_off=None,
                 ))
+                # Missed note contributes 0.0 to all sums
                 continue
 
             matched_det_indices.add(best_idx)
             det = detected_events[best_idx]
 
+            # Timing and duration weights are computed for any matched note
+            time_offset = det.start_time - exp.relative_time
+            timing_delta_ms = round(time_offset * 1000)
+            if abs(time_offset) <= 0.05:
+                note_timing_weight = 1.0
+            elif abs(time_offset) <= 0.15:
+                note_timing_weight = 0.6
+                direction = "late" if time_offset > 0 else "early"
+                mistakes.append(AnalysisMistake(
+                    timestamp=det.start_time,
+                    type=direction,
+                    details=f"{det.note} played {direction} by {abs(timing_delta_ms)}ms"
+                ))
+            else:
+                note_timing_weight = 0.2
+                direction = "late" if time_offset > 0 else "early"
+                mistakes.append(AnalysisMistake(
+                    timestamp=det.start_time,
+                    type=direction,
+                    details=f"{det.note} played {direction} by {abs(timing_delta_ms)}ms"
+                ))
+
+            dur_delta = det.duration - exp.duration
+            dur_delta_ms = round(dur_delta * 1000)
+            if abs(dur_delta) <= 0.10:
+                note_duration_weight = 1.0
+            elif abs(dur_delta) <= 0.20:
+                note_duration_weight = 0.6
+                direction = "too long" if dur_delta > 0 else "too short"
+                mistakes.append(AnalysisMistake(
+                    timestamp=det.start_time,
+                    type="duration",
+                    details=f"{det.note} held {direction} ({abs(dur_delta_ms)}ms off)"
+                ))
+            else:
+                note_duration_weight = 0.2
+                direction = "too long" if dur_delta > 0 else "too short"
+                mistakes.append(AnalysisMistake(
+                    timestamp=det.start_time,
+                    type="duration",
+                    details=f"{det.note} held {direction} ({abs(dur_delta_ms)}ms off)"
+                ))
+
+            rhythm_weight_sum += note_timing_weight
+            duration_weight_sum += note_duration_weight
+
             # ── Pitch check ──
             if det.note != exp.note:
                 wrong_count += 1
-                pitch_score = max(20.0, pitch_score - 20.0)
                 mistakes.append(AnalysisMistake(
                     timestamp=det.start_time,
                     type="wrong_note",
@@ -291,17 +346,19 @@ class PerformanceScoringEngine:
                     result="wrong",
                     expected_time=exp.relative_time,
                     played_time=det.start_time,
-                    timing_delta_ms=round((det.start_time - exp.relative_time) * 1000),
+                    timing_delta_ms=timing_delta_ms,
                     expected_duration=exp.duration,
                     played_duration=det.duration,
-                    duration_delta_ms=round((det.duration - exp.duration) * 1000),
+                    duration_delta_ms=dur_delta_ms,
                     cents_off=round(det.cents_off, 1),
                 ))
+                # Wrong pitch contributes 0.0 to pitch weight sum
                 continue
 
             correct_count += 1
+            note_pitch_weight = 1.0
 
-            # ── Cents intonation ──
+            # ── Cents intonation check (only for correct pitch) ──
             if abs(det.cents_off) > 15.0:
                 direction = "sharp" if det.cents_off > 0 else "flat"
                 mistakes.append(AnalysisMistake(
@@ -309,31 +366,9 @@ class PerformanceScoringEngine:
                     type=direction,
                     details=f"{det.note} was {direction} by {abs(det.cents_off):.1f} cents"
                 ))
-                pitch_score = max(30.0, pitch_score - 8.0)
+                note_pitch_weight = 0.8
 
-            # ── Timing ──
-            time_offset = det.start_time - exp.relative_time
-            timing_delta_ms = round(time_offset * 1000)
-            if abs(time_offset) > 0.15:
-                direction = "late" if time_offset > 0 else "early"
-                mistakes.append(AnalysisMistake(
-                    timestamp=det.start_time,
-                    type=direction,
-                    details=f"{det.note} played {direction} by {abs(timing_delta_ms)}ms"
-                ))
-                rhythm_score = max(30.0, rhythm_score - 15.0)
-
-            # ── Duration ──
-            dur_delta = det.duration - exp.duration
-            dur_delta_ms = round(dur_delta * 1000)
-            if abs(dur_delta) > 0.20:  # more than 200ms off
-                direction = "too long" if dur_delta > 0 else "too short"
-                mistakes.append(AnalysisMistake(
-                    timestamp=det.start_time,
-                    type="duration",
-                    details=f"{det.note} held {direction} ({abs(dur_delta_ms)}ms off)"
-                ))
-                duration_score = max(30.0, duration_score - 10.0)
+            pitch_weight_sum += note_pitch_weight
 
             comparison_table.append(NoteComparisonEvent(
                 expected_note=exp.note,
@@ -349,11 +384,9 @@ class PerformanceScoringEngine:
             ))
 
         # ── 3. Extra notes (played but not expected) ──────────────────────────
-        extra_count = 0
         for i, det in enumerate(detected_events):
             if i not in matched_det_indices:
                 extra_count += 1
-                pitch_score = max(20.0, pitch_score - 10.0)
                 mistakes.append(AnalysisMistake(
                     timestamp=det.start_time,
                     type="extra_note",
@@ -372,14 +405,36 @@ class PerformanceScoringEngine:
                     cents_off=round(det.cents_off, 1),
                 ))
 
-        # ── 4. Overall score — weighted average ───────────────────────────────
-        overall = (pitch_score * 0.35 + rhythm_score * 0.30 + tempo_score * 0.20 + duration_score * 0.15)
+        # Calculate base scores scaled to total expected notes
+        if total_notes > 0:
+            pitch_score = 100.0 * (pitch_weight_sum / total_notes)
+            # Subtract 10.0 penalty for each extra note
+            pitch_score = max(0.0, pitch_score - (10.0 * extra_count))
+            rhythm_score = 100.0 * (rhythm_weight_sum / total_notes)
+            duration_score = 100.0 * (duration_weight_sum / total_notes)
+        else:
+            pitch_score = 100.0
+            rhythm_score = 100.0
+            duration_score = 100.0
+
+        # ── 4. Overall score — weighted average with Pitch Gating ────────────────
+        weighted = (pitch_score * 0.35 + rhythm_score * 0.30 + tempo_score * 0.20 + duration_score * 0.15)
+        # Apply pitch gating: overall is scaled by sqrt(pitch_accuracy)
+        overall = weighted * ((pitch_score / 100.0) ** 0.5)
+
+        # Strictly enforce 0 when no events were detected
+        if len(detected_events) == 0 and total_notes > 0:
+            pitch_score = 0.0
+            rhythm_score = 0.0
+            tempo_score = 0.0
+            duration_score = 0.0
+            overall = 0.0
 
         # ── 5. Per-measure scores ─────────────────────────────────────────────
         measure_scores: Dict[int, float] = {}
-        for m_idx in range(max(1, (len(expected) + 3) // 4)):
+        for m_idx in range(max(1, (total_notes + 3) // 4)):
             start_exp = m_idx * 4
-            end_exp = min(len(expected), start_exp + 4)
+            end_exp = min(total_notes, start_exp + 4)
             m_expected = expected[start_exp:end_exp]
             if not m_expected:
                 continue
