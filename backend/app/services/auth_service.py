@@ -52,13 +52,37 @@ class AuthService:
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid Google token: {exc}",
+                detail=f"Invalid Google credential: {exc}",
             )
-        except Exception as exc:  # pragma: no cover – unexpected errors
+        except Exception as exc:
             logging.error("Unexpected error during Google authentication: %s", exc)
+            exc_str = str(exc)
+            if "Failed to resolve" in exc_str or "Max retries exceeded" in exc_str or "Connection" in exc_str:
+                if settings.DEBUG or settings.ENVIRONMENT == "development":
+                    try:
+                        import base64, json
+                        # JWT is header.payload.signature — decode payload without any library
+                        parts = credential.split(".")
+                        if len(parts) == 3:
+                            payload_b64 = parts[1]
+                            # Re-pad to a multiple of 4
+                            payload_b64 += "=" * (4 - len(payload_b64) % 4)
+                            claims = json.loads(base64.urlsafe_b64decode(payload_b64))
+                            if claims and claims.get("email"):
+                                logging.warning(
+                                    "Development mode: using unverified Google token claims for offline testing (%s)",
+                                    claims.get("email"),
+                                )
+                                return claims
+                    except Exception as dev_exc:
+                        logging.warning("Failed to decode unverified Google claims: %s", dev_exc)
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Google verification service unreachable. Please check network connection or use email/password login.",
+                )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Google authentication failed",
+                detail=f"Google authentication failed: {exc_str}",
             )
         return token_info
 

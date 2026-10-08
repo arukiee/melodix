@@ -100,6 +100,8 @@ export interface PracticeMission {
   progressionMode?: 'wait' | 'timed';
   handMode?: 'right' | 'left' | 'both';
   phraseRef?: string;               // SongPhrase.id if phrase mission
+  phraseIndex?: number;
+  phraseTotal?: number;
   simplified?: boolean;
 }
 
@@ -112,8 +114,11 @@ export interface PracticePhase {
 export interface PracticeSessionResponse {
   lesson_id: string;
   overall_progress: number;
+  processing_job_id?: string;
+  song_id?: string;
+  current_mission_id?: string;
   phases: PracticePhase[];          // existing sidebar navigation
-  // New: 7-level progressive curriculum
+  // 5-level / 7-level progressive curriculum
   levels?: LearningLevel[];
   lyricAlignment?: LyricAlignment;  // song-level lyrics (not per-mission)
   phrases?: SongPhrase[];           // musically-bounded phrase list
@@ -191,8 +196,31 @@ export interface AnalysisResult {
 }
 
 export const practiceApi = {
+  getSongPractice: async (songId: string): Promise<PracticeSessionResponse> => {
+    const response = await apiClient.get<PracticeSessionResponse>(`/api/v1/practice/songs/${songId}`);
+    return response.data;
+  },
+
+  submitSongMissionProgress: async (
+    songId: string,
+    missionId: string,
+    status: MissionStatus,
+    score?: number
+  ): Promise<PracticeSessionResponse> => {
+    const response = await apiClient.patch<PracticeSessionResponse>(
+      `/api/v1/practice/songs/${songId}/missions/${missionId}`,
+      { status, score }
+    );
+    return response.data;
+  },
+
   getLessonPractice: async (lessonId: string): Promise<PracticeSessionResponse> => {
     const response = await apiClient.get<PracticeSessionResponse>(`/api/v1/practice/lessons/${lessonId}`);
+    return response.data;
+  },
+
+  getJobPractice: async (jobId: string): Promise<PracticeSessionResponse> => {
+    const response = await apiClient.get<PracticeSessionResponse>(`/api/v1/practice/jobs/${jobId}`);
     return response.data;
   },
 
@@ -204,6 +232,19 @@ export const practiceApi = {
   ): Promise<PracticeSessionResponse> => {
     const response = await apiClient.patch<PracticeSessionResponse>(
       `/api/v1/practice/lessons/${lessonId}/missions/${missionId}`,
+      { status, score }
+    );
+    return response.data;
+  },
+
+  submitJobMissionProgress: async (
+    jobId: string,
+    missionId: string,
+    status: MissionStatus,
+    score?: number
+  ): Promise<PracticeSessionResponse> => {
+    const response = await apiClient.patch<PracticeSessionResponse>(
+      `/api/v1/practice/jobs/${jobId}/missions/${missionId}`,
       { status, score }
     );
     return response.data;

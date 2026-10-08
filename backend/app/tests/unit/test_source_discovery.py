@@ -118,11 +118,11 @@ async def test_discover_and_analyze_youtube_fallback_success():
         assert job_id is not None
         assert mock_provider.search.called
         assert mock_exec.called
-        # Check command contains 'python3', '-m', 'yt_dlp'
+        # Production installs yt-dlp as a console script (the same command used
+        # by Docker and the local virtualenv), so invoke that supported entry
+        # point instead of assuming a particular system Python executable.
         args, kwargs = mock_exec.call_args
-        assert args[0] == "python3"
-        assert args[1] == "-m"
-        assert args[2] == "yt_dlp"
+        assert args[0] == "yt-dlp"
         assert "https://www.youtube.com/watch?v=2Vv-BfVoq4g" in args
 
         mock_minio.upload_bytes.assert_called_once()

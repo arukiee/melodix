@@ -14,6 +14,7 @@ class SearchResult(BaseModel):
     popularity: int = 0
     thumbnailUrl: Optional[str] = None
     rank_score: float = 0.0
+    low_confidence_match: Optional[bool] = None
 
 class SearchFilter(BaseModel):
     difficulty: Optional[str] = None

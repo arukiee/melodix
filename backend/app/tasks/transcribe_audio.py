@@ -35,7 +35,7 @@ from app.models.provenance import ProcessingProvenance
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_VERSION = "1.0.0"
+PIPELINE_VERSION = "1.1.0"
 
 
 def _update_job_status(db, job_id: str, stage: str, progress: int, stage_log_entry: dict = None):
@@ -329,6 +329,13 @@ def process_audio_pipeline(self, processing_job_id: str):
 
         # ── COMPLETED ────────────────────────────────────────────────────
         # Create provenance record
+        existing_prov = db.query(ProcessingProvenance).filter(
+            ProcessingProvenance.processing_job_id == uuid.UUID(processing_job_id)
+        ).first()
+        if existing_prov:
+            db.delete(existing_prov)
+            db.flush()
+
         transcription = db.query(Transcription).filter(
             Transcription.id == uuid.UUID(transcription_result["transcription_id"])
         ).first()
@@ -366,6 +373,8 @@ def process_audio_pipeline(self, processing_job_id: str):
         ).first()
         job.status = ProcessingJobStage.COMPLETED.value
         job.progress_percent = 100
+        job.error_code = None
+        job.error_message = None
         job.completed_at = datetime.now(timezone.utc)
         log = list(job.stage_log or [])
         log.append({

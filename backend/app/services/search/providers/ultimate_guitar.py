@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import httpx
 import json
 import re
@@ -6,6 +7,8 @@ from typing import List, Optional
 from bs4 import BeautifulSoup
 from app.services.search.base_provider import BaseSearchProvider
 from app.schemas.search import SearchResult, SearchFilter
+
+logger = logging.getLogger("melodix.search.ultimate_guitar")
 
 class UltimateGuitarProvider(BaseSearchProvider):
     @property
@@ -60,8 +63,8 @@ class UltimateGuitarProvider(BaseSearchProvider):
                 ))
             return results
         except Exception as e:
-            print(f"Ultimate Guitar search error: {e}")
-            return []
+            logger.error(f"Ultimate Guitar search error for '{query}': {e}")
+            raise e
 
     async def get_raw_data(self, item_id: str) -> bytes:
         """

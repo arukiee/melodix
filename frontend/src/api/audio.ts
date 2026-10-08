@@ -5,12 +5,22 @@ export interface ProcessingJobStatus {
   song_id?: string;
   status: string;
   progress_percent: number;
+  error_message?: string | null;
   stage_log: Array<{
     stage: string;
     started_at: string;
     completed_at?: string;
     result?: string;
+    error?: string;
   }>;
+}
+
+export interface ProcessingJobSummary {
+  id: string;
+  status: string;
+  progress_percent: number;
+  pipeline_version: string;
+  created_at?: string;
 }
 
 export async function getSongById(songId: string): Promise<{ id: string; title: string; composer?: string; artist?: string }> {
@@ -39,6 +49,11 @@ export async function uploadAudio(file: File, songId?: string): Promise<{ audio_
 
 export async function getPipelineStatus(jobId: string): Promise<ProcessingJobStatus> {
   const { data } = await apiClient.get<ProcessingJobStatus>(`/api/v1/pipeline/${jobId}`);
+  return data;
+}
+
+export async function getUserPipelineJobs(): Promise<ProcessingJobSummary[]> {
+  const { data } = await apiClient.get<ProcessingJobSummary[]>('/api/v1/pipeline/user/jobs');
   return data;
 }
 

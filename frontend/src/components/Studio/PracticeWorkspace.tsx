@@ -308,40 +308,8 @@ export const PracticeWorkspace: React.FC<PracticeWorkspaceProps> = ({
               });
             }
           } catch (err) {
-            console.error('Performance analysis failed, using fallback score', err);
-            const fallbackScore = Math.floor(Math.random() * 20) + 80;
-            const fallback_analysis = {
-              version: 1,
-              scores: { pitchScore: fallbackScore - 2, rhythmScore: fallbackScore + 1, tempoScore: fallbackScore, durationScore: fallbackScore, overallScore: fallbackScore },
-              tempo_metrics: { targetBpm: metronomeBpm, averageBpm: metronomeBpm - 1.2, bpmVariance: 2.1, driftBpm: -1.2, stabilityScore: 94.0 },
-              mistakes: [
-                { timestamp: 1.2, type: "flat", details: "F4 note was flat by 18 cents" },
-                { timestamp: 3.4, type: "late_release", details: "G4 was played late by 0.18s" }
-              ],
-              measure_scores: { 0: fallbackScore - 1, 1: fallbackScore + 2 } as Record<number, number>,
-              measure_dynamics: { 0: "medium", 1: "soft" } as Record<number, string>
-            };
-            setAnalysisResult(fallback_analysis);
-            setHistory(prev => [
-              { id: String(prev.length + 1), date: 'Just now', score: fallbackScore, bpm: metronomeBpm },
-              ...prev
-            ]);
-
-            setMeasureHistory(prev => {
-              const next = { ...prev };
-              Object.entries(fallback_analysis.measure_scores).forEach(([m_idx, m_score]: [string, any]) => {
-                const m_idx_num = parseInt(m_idx, 10);
-                const m_dyn = fallback_analysis.measure_dynamics?.[m_idx_num] || "medium";
-                const prev_stat = prev[m_idx_num] || { attempts: 0, bestScore: 0, lastScore: 0, dynamic: "medium" };
-                next[m_idx_num] = {
-                  attempts: prev_stat.attempts + 1,
-                  bestScore: Math.max(prev_stat.bestScore, m_score),
-                  lastScore: m_score,
-                  dynamic: m_dyn
-                };
-              });
-              return next;
-            });
+            console.error('Performance analysis failed', err);
+            setFeedbackMessage('Performance analysis failed. Your attempt was not scored; please try again.');
           }
         };
 

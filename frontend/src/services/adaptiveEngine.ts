@@ -27,6 +27,11 @@ export interface AdaptiveEngineState {
   loopMeasure: number | null;
   currentBpm: number;
   targetBpm: number;
+  // Live timing / adaptive feedback fields
+  tempoMultiplier: number;
+  assistanceLevel: number;
+  lastAction: 'none' | 'slow_down' | 'add_assistance';
+  actionMessage: string | null;
 }
 
 export class AdaptiveEngine {
@@ -41,6 +46,20 @@ export class AdaptiveEngine {
   private loopMeasure: number | null = null;
   
   private currentBpm = 60;
+
+  // Per-note result tracking for live timing evaluation
+  private noteResults: Array<{
+    expectedPitch: number | null;
+    playedPitch: number | null;
+    timingDiffMs: number;
+    result: string;
+    timestamp: number;
+  }> = [];
+  private tempoMultiplier = 1.0;
+  private assistanceLevel = 0;
+  private lastAction: 'none' | 'slow_down' | 'add_assistance' = 'none';
+  private actionMessage: string | null = null;
+
   private onStateChange: (state: AdaptiveEngineState) => void;
 
   constructor(
@@ -83,6 +102,60 @@ export class AdaptiveEngine {
   
   public getStepsForSection(sectionId: string): LessonStage[] {
     return this.steps.filter(s => s.section_id === sectionId);
+  }
+
+  /**
+   * Record a single note attempt from the live practice UI.
+   * Tracks consecutive misses per expected pitch and triggers adaptive
+   * responses (slow_down → add_assistance) after 2+ misses.
+   */
+  public recordNoteResult(payload: {
+    expectedPitch: number | null;
+    playedPitch: number | null;
+    timingDiffMs: number;
+    result: 'correct' | 'incorrect' | 'early' | 'late';
+  }): void {
+    this.noteResults.push({ ...payload, timestamp: Date.now() });
+    this.lastAction = 'none';
+    this.actionMessage = null;
+
+    // On correct — reset and notify (no adaptive change needed)
+    if (payload.result === 'correct') {
+      this.notify();
+      return;
+    }
+
+    // Count consecutive misses for this pitch in the last 6 attempts
+    const recent = this.noteResults.slice(-6);
+    const consecutiveMisses = recent.filter(
+      r => r.expectedPitch === payload.expectedPitch && r.result !== 'correct'
+    ).length;
+
+    if (consecutiveMisses >= 2) {
+      if (this.tempoMultiplier > 0.5) {
+        this.tempoMultiplier = Math.round(Math.max(0.5, this.tempoMultiplier - 0.25) * 100) / 100;
+        this.lastAction = 'slow_down';
+        this.actionMessage = "Let's slow down. Watch this key.";
+      } else {
+        this.assistanceLevel = Math.min(2, this.assistanceLevel + 1);
+        this.lastAction = 'add_assistance';
+        this.actionMessage = 'Listen first, then play.';
+      }
+    }
+
+    this.notify();
+  }
+
+  public getTempoMultiplier(): number {
+    return this.tempoMultiplier;
+  }
+
+  public getAssistanceLevel(): number {
+    return this.assistanceLevel;
+  }
+
+  public getNoteResults() {
+    return [...this.noteResults];
   }
 
   public submitScore(score: number, recommendLoopMeasure: number | null, recommendTempoChange: number) {
@@ -136,7 +209,11 @@ export class AdaptiveEngine {
       isLooping: this.isLooping,
       loopMeasure: this.loopMeasure,
       currentBpm: this.currentBpm,
-      targetBpm: this.targetBpm
+      targetBpm: this.targetBpm,
+      tempoMultiplier: this.tempoMultiplier,
+      assistanceLevel: this.assistanceLevel,
+      lastAction: this.lastAction,
+      actionMessage: this.actionMessage,
     };
   }
 

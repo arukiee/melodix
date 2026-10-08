@@ -11,7 +11,6 @@
  *   automatically. The highlighted key changes on schedule.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { PracticeMission, LyricAlignment } from '../../api/practice';
 import { liveNoteDetector } from '../../services/liveNoteDetector';
 import { PianoKeyboard } from './PianoKeyboard';
@@ -50,7 +49,7 @@ function notesMatch(expected: string, played: string): boolean {
 interface LearnModeWorkspaceProps {
   mission: PracticeMission;
   lyricAlignment: LyricAlignment | null | undefined;
-  onComplete: () => void;
+  onComplete: (score?: number) => void;
 }
 
 export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
@@ -62,6 +61,7 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
   const isWaitMode  = mission.progressionMode === 'wait';
 
   const [noteIndex,    setNoteIndex]    = useState(0);
+  const [wrongCount,   setWrongCount]   = useState(0);
   const [feedback,     setFeedback]     = useState<'idle' | 'correct' | 'wrong'>('idle');
   const [pulseTrigger, setPulseTrigger] = useState(0);
 
@@ -72,7 +72,12 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
   useEffect(() => { indexRef.current = noteIndex; }, [noteIndex]);
 
   const currentEvent  = events[noteIndex] ?? null;
-  const isComplete    = noteIndex >= events.length;
+  const isComplete    = events.length > 0 && noteIndex >= events.length;
+
+  const calculateScore = useCallback(() => {
+    if (events.length === 0) return 100;
+    return wrongCount > 0 ? Math.max(50, Math.round((events.length / (events.length + wrongCount)) * 100)) : 100;
+  }, [events.length, wrongCount]);
 
   // ---- Timed mode (Level 2) -----------------------------------------------
   useEffect(() => {
@@ -86,7 +91,7 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
         const next = prev + 1;
         if (next >= events.length) {
           if (timerRef.current) clearInterval(timerRef.current);
-          onComplete();
+          onComplete(100);
         }
         return next;
       });
@@ -101,12 +106,8 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
     setFeedback('correct');
     setPulseTrigger(t => t + 1);
     setTimeout(() => setFeedback('idle'), 400);
-    setNoteIndex(prev => {
-      const next = prev + 1;
-      if (next >= events.length) onComplete();
-      return next;
-    });
-  }, [events.length, onComplete]);
+    setNoteIndex(prev => prev + 1);
+  }, []);
 
   useEffect(() => {
     if (!isWaitMode) return;
@@ -115,6 +116,7 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
       if (notesMatch(currentEvent.note, detected)) {
         advance();
       } else {
+        setWrongCount(w => w + 1);
         setFeedback('wrong');
         setTimeout(() => setFeedback('idle'), 300);
       }
@@ -129,6 +131,7 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
       if (notesMatch(currentEvent.note, note)) {
         advance();
       } else {
+        setWrongCount(w => w + 1);
         setFeedback('wrong');
         setTimeout(() => setFeedback('idle'), 300);
       }
@@ -213,8 +216,11 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
           <div style={{ textAlign: 'center', animation: 'fadeIn 0.4s ease' }}>
             <div style={{ fontSize: '3rem' }}>🎉</div>
             <div style={{ fontSize: '1.4rem', fontWeight: 700, marginTop: '12px' }}>Section complete!</div>
+            <div style={{ fontSize: '1.1rem', color: '#22c55e', fontWeight: 600, marginTop: '6px' }}>
+              Score: {calculateScore()}%
+            </div>
             <button
-              onClick={onComplete}
+              onClick={() => onComplete(calculateScore())}
               style={{
                 marginTop: '20px',
                 padding: '12px 32px',
@@ -249,106 +255,82 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
                   <div style={{
                     width: '70px',
                     height: '70px',
-                    borderRadius: '12px',
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '16px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    color: '#22c55e',
+                    fontSize: '1.3rem',
+                    fontWeight: 700,
+                    color: 'var(--text-secondary, #9ca3af)',
                   }}>
                     {events[noteIndex - 1]?.note}
                   </div>
-                  <span style={{ fontSize: '0.8rem', color: '#22c55e', marginTop: '4px' }}>✓</span>
                 </div>
               ) : (
                 <div style={{ width: '70px' }} />
               )}
 
-              {/* Arrow */}
-              {noteIndex > 0 && <ChevronRight size={20} style={{ color: 'var(--text-muted, #6b7280)', opacity: 0.3 }} />}
-
-              {/* Current Note Ring */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                transition: 'all 0.3s ease',
-              }}>
-                <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary, #7c3aed)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
-                  {isWaitMode ? 'Play Now' : 'Now Playing'}
+              {/* Current Target Note (Hero Focus) */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                <span style={{ fontSize: '0.8rem', color: '#22c55e', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>
+                  Target
                 </span>
-                <div style={{
-                  width: '140px',
-                  height: '140px',
-                  borderRadius: '50%',
-                  border: `4px solid ${ringColor}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  background: `radial-gradient(circle, ${ringColor}18 0%, transparent 70%)`,
-                  boxShadow: feedback === 'correct'
-                    ? `0 0 40px ${ringColor}60`
-                    : feedback === 'wrong'
-                      ? `0 0 20px #ef444460`
-                      : `0 0 24px ${ringColor}30`,
-                  transform: feedback === 'correct' ? 'scale(1.08)' : feedback === 'wrong' ? 'scale(0.96)' : 'scale(1)',
-                  transition: 'all 0.18s ease',
-                }}>
-                  <span style={{
-                    fontSize: '2.5rem',
-                    fontWeight: 800,
-                    color: ringColor,
-                    letterSpacing: '-0.02em',
-                  }}>
-                    {currentEvent?.note ?? '—'}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: ringColor, fontWeight: 600, marginTop: '8px' }}>
-                  🎯 TARGET
-                </span>
-              </div>
-
-              {/* Arrow */}
-              {noteIndex < events.length - 1 && <ChevronRight size={20} style={{ color: 'var(--text-muted, #6b7280)', opacity: 0.3 }} />}
-
-              {/* Next Note */}
-              {noteIndex < events.length - 1 ? (
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  opacity: 0.7,
-                  transform: 'scale(0.85)',
-                  transition: 'all 0.3s ease',
-                }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #6b7280)', textTransform: 'uppercase', marginBottom: '4px' }}>Next</span>
-                  <div style={{
-                    width: '70px',
-                    height: '70px',
-                    borderRadius: '12px',
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                <div
+                  key={pulseTrigger}
+                  style={{
+                    width: '120px',
+                    height: '120px',
+                    borderRadius: '28px',
+                    background: 'var(--bg-elevated, #242450)',
+                    border: `3px solid ${ringColor}`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '1.25rem',
-                    fontWeight: 600,
-                    color: 'var(--text-secondary, #9ca3af)',
-                  }}>
-                    {events[noteIndex + 1]?.note}
-                  </div>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted, #6b7280)', marginTop: '4px' }}>○</span>
+                    fontSize: '2.8rem',
+                    fontWeight: 900,
+                    color: '#fff',
+                    boxShadow: feedback === 'correct'
+                      ? '0 0 35px rgba(34, 197, 94, 0.4)'
+                      : feedback === 'wrong'
+                        ? '0 0 35px rgba(239, 68, 68, 0.4)'
+                        : '0 8px 32px rgba(0,0,0,0.4)',
+                    transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                    transform: feedback !== 'idle' ? 'scale(1.08)' : 'scale(1)',
+                  }}
+                >
+                  {currentEvent?.note ?? '—'}
                 </div>
-              ) : (
-                <div style={{ width: '70px' }} />
-              )}
+              </div>
+
+              {/* Next Notes (Queue) */}
+              <div style={{ display: 'flex', gap: '8px', opacity: 0.5, transform: 'scale(0.85)', transition: 'all 0.3s ease' }}>
+                {upcomingNotes.map((note, i) => (
+                  <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted, #6b7280)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      {i === 0 ? 'Next' : `+${i + 1}`}
+                    </span>
+                    <div style={{
+                      width: '70px',
+                      height: '70px',
+                      borderRadius: '16px',
+                      background: 'rgba(255,255,255,0.05)',
+                      border: '1px solid var(--border-color, rgba(255,255,255,0.1))',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1.3rem',
+                      fontWeight: 700,
+                      color: 'var(--text-secondary, #9ca3af)',
+                    }}>
+                      {note}
+                    </div>
+                  </div>
+                ))}
+              </div>
 
             </div>
-
 
             {/* Progress bar */}
             <div style={{ width: '100%', maxWidth: '420px' }}>
@@ -380,7 +362,7 @@ export const LearnModeWorkspace: React.FC<LearnModeWorkspaceProps> = ({
                 textAlign: 'center',
                 margin: 0,
               }}>
-                Press the highlighted key or play into your mic when ready
+                Press the highlighted key on the piano to play
               </p>
             )}
           </>

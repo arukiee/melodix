@@ -47,13 +47,6 @@ export function Library() {
     fetchSongs('', filter);
   }, [filter]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchSongs(searchQuery, filter);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
   const formatDuration = (seconds?: number) => {
     if (!seconds) return '3 min';
     const mins = Math.floor(seconds / 60);

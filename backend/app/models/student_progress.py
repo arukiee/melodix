@@ -24,6 +24,10 @@ class StudentLearningState(Base):
     # Track per-song, per-difficulty accuracy history to unlock higher levels
     # format: { "song_id": { "EASY": [{ "score": 96, "date": "..." }], "MEDIUM": [] } }
     performance_history = Column(ConditionalJSON, default=dict)
+    # Per analyzed-song state keyed by processing job id.  This keeps the
+    # resume cursor and attempt history alongside the existing student state;
+    # SongLearningProgress remains the durable song-level summary.
+    practice_sessions = Column(ConditionalJSON, default=dict)
     current_difficulty = Column(String(20), default="EASY")
     
     # Skill Levels & Weak Areas Mapping

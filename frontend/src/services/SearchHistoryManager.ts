@@ -27,13 +27,14 @@ export class SearchHistoryManager {
   }
 
   static cacheResults(query: string, results: SearchResult[]) {
-    if (!query.trim()) return;
+    const q = query.trim().toLowerCase();
+    if (!q || !results || results.length === 0) return;
     try {
       let cache: Record<string, { timestamp: number; results: SearchResult[] }> = {};
       const raw = localStorage.getItem(CACHE_KEY);
       if (raw) cache = JSON.parse(raw);
       
-      cache[query.toLowerCase()] = {
+      cache[q] = {
         timestamp: Date.now(),
         results: results.slice(0, 20) // Only cache top 20
       };
@@ -41,8 +42,8 @@ export class SearchHistoryManager {
       // Cleanup old cache entries if > 50
       const keys = Object.keys(cache);
       if (keys.length > 50) {
-          const oldest = keys.sort((a, b) => cache[a].timestamp - cache[b].timestamp)[0];
-          delete cache[oldest];
+        const oldest = keys.sort((a, b) => cache[a].timestamp - cache[b].timestamp)[0];
+        delete cache[oldest];
       }
       
       localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
@@ -52,21 +53,30 @@ export class SearchHistoryManager {
   }
 
   static getCachedResults(query: string): SearchResult[] | null {
-    if (!query.trim()) return null;
+    const q = query.trim().toLowerCase();
+    if (!q) return null;
     try {
       const raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       
       const cache = JSON.parse(raw);
-      const entry = cache[query.toLowerCase()];
+      const entry = cache[q];
       
-      // Expire cache after 24 hours
-      if (entry && (Date.now() - entry.timestamp < 24 * 60 * 60 * 1000)) {
+      // Expire cache after 24 hours, and only return valid non-empty arrays
+      if (entry && Array.isArray(entry.results) && entry.results.length > 0 && (Date.now() - entry.timestamp < 24 * 60 * 60 * 1000)) {
         return entry.results;
       }
       return null;
     } catch {
       return null;
+    }
+  }
+
+  static clearCache() {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+    } catch (e) {
+      console.warn("Failed to clear search cache", e);
     }
   }
 }

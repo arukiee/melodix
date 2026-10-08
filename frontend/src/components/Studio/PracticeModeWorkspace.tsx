@@ -7,12 +7,13 @@
  * 3. Play tab: Interactive practice where correct note keystroke advances current note.
  * 4. A clean, Synthesia-style horizontal scrolling note visualizer with a fixed Playhead bar.
  */
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Headphones, Eye, Play, Pause, RotateCcw } from 'lucide-react';
 import type { PracticeMission, LyricAlignment, SongPhrase } from '../../api/practice';
 import { PianoKeyboard } from './PianoKeyboard';
 import { LyricsHUD } from './LyricsHUD';
 import { usePlaybackController } from '../../services/usePlaybackController';
+import { AdaptiveEngine, type AdaptiveEngineState } from '../../services/adaptiveEngine';
 
 type PhraseTab = 'listen' | 'watch' | 'play';
 
@@ -56,10 +57,53 @@ export const PracticeModeWorkspace: React.FC<PracticeModeWorkspaceProps> = ({
   const [correctCount, setCorrectCount] = useState(0);
   const [accuracy, setAccuracy] = useState(100);
 
+  // Timed Practice mode — when ON the playhead runs and timing is evaluated
+  const [timedMode, setTimedMode] = useState(false);
+
+  // Last note result for feedback UI
+  const [lastResult, setLastResult] = useState<{
+    result: 'correct' | 'incorrect' | 'early' | 'late';
+    expectedPitch: string;
+    timingDiffMs: number;
+  } | null>(null);
+
+  // Adaptive engine state (tempoMultiplier, assistanceLevel, lastAction, etc.)
+  const [adaptiveState, setAdaptiveState] = useState<AdaptiveEngineState | null>(null);
+  const [adaptiveToast, setAdaptiveToast] = useState<string | null>(null);
+
+  // Ref to clear the feedback flash after 600 ms
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Initialize playback controller
   // In 'listen' and 'watch' modes we auto-synthesize notes
   const isAutoPlay = phraseTab === 'listen' || phraseTab === 'watch' || !isPhrase;
   const controller = usePlaybackController(events, mission.bpm || 60, isAutoPlay);
+
+  // AdaptiveEngine instance — recreated only when the mission changes
+  const adaptiveEngine = useMemo(
+    () =>
+      new AdaptiveEngine(
+        [], // sections — populated from mission server data in future; [] is fine for per-note tracking
+        [], // steps
+        mission.bpm || 60,
+        (state) => {
+          setAdaptiveState(state);
+          // ── Apply tempo changes to real playback ──
+          if (state.tempoMultiplier !== undefined) {
+            controller.setPlaybackRate(state.tempoMultiplier);
+          }
+          // Show adaptive toast when the engine fires an action
+          if (state.actionMessage) {
+            setAdaptiveToast(state.actionMessage);
+            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+            toastTimerRef.current = setTimeout(() => setAdaptiveToast(null), 3500);
+          }
+        }
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mission.id]
+  );
 
   // Reset play session states on tab switch or mission changes
   useEffect(() => {
@@ -68,32 +112,92 @@ export const PracticeModeWorkspace: React.FC<PracticeModeWorkspaceProps> = ({
     setAttempts(0);
     setCorrectCount(0);
     setAccuracy(100);
+    setLastResult(null);
+    setTimedMode(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phraseTab, mission.id]);
 
-  // Handle keys hit on play tab
+  // When timedMode is ON in the play tab, start the playhead clock.
+  // The clock ticks but autoPlayAudio=false so no auto-synthesis.
+  useEffect(() => {
+    if (timedMode && phraseTab === 'play') {
+      controller.startPlayback();
+    } else if (!timedMode) {
+      controller.stopPlayback();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timedMode, phraseTab]);
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // handleKeyPress — pitch + optional timing evaluation
+  // ──────────────────────────────────────────────────────────────────────────
+  const TIMING_TOLERANCE_S = 0.15; // 150 ms window
+
   const handleKeyPress = (note: string) => {
     if (phraseTab !== 'play' && isPhrase) return;
 
     const targetNote = events[playIndex];
     if (!targetNote) return;
 
-    setAttempts(a => a + 1);
-    const isCorrect = noteToMidi(note) === noteToMidi(targetNote.note);
+    const expectedPitch = targetNote.note;           // real field: "C4", "F#3", etc.
+    const expectedTime  = targetNote.relative_time;  // real field: seconds from phrase start
+    const pressTime     = timedMode ? controller.currentTime : 0; // 0 in wait-mode → diff is always 0
 
-    if (isCorrect) {
-      setCorrectCount(c => c + 1);
+    const pitchOk = noteToMidi(note) === noteToMidi(expectedPitch);
+
+    let result: 'correct' | 'incorrect' | 'early' | 'late';
+
+    if (!pitchOk) {
+      result = 'incorrect';
+    } else if (!timedMode) {
+      // Wait-mode: pitch-only, no clock running
+      result = 'correct';
+    } else {
+      const diff = pressTime - expectedTime;
+      if (Math.abs(diff) <= TIMING_TOLERANCE_S) result = 'correct';
+      else if (diff < 0)                         result = 'early';
+      else                                        result = 'late';
+    }
+
+    // ── Stale-state fix: compute everything from local vars ─────────────────
+    const newAttempts     = attempts + 1;
+    const isActuallyRight = result === 'correct';
+    const newCorrectCount = correctCount + (isActuallyRight ? 1 : 0);
+    const partialPoints   = result === 'early' || result === 'late' ? 0.5 : 0;
+    const numerator       = newCorrectCount + (isActuallyRight ? 0 : partialPoints);
+    const newAccuracy     = Math.round((numerator / newAttempts) * 100);
+
+    setAttempts(newAttempts);
+    if (isActuallyRight) setCorrectCount(newCorrectCount);
+    setAccuracy(newAccuracy);
+
+    // ── Feedback flash (cleared after 600 ms) ───────────────────────────────
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    setLastResult({
+      result,
+      expectedPitch,
+      timingDiffMs: (pressTime - expectedTime) * 1000,
+    });
+    feedbackTimerRef.current = setTimeout(() => setLastResult(null), 600);
+
+    // ── Feed adaptive engine ────────────────────────────────────────────────
+    adaptiveEngine.recordNoteResult({
+      expectedPitch: noteToMidi(expectedPitch),
+      playedPitch: noteToMidi(note),
+      timingDiffMs: (pressTime - expectedTime) * 1000,
+      result,
+    });
+
+    // ── Advance only on correct ─────────────────────────────────────────────
+    if (isActuallyRight) {
       const nextIdx = playIndex + 1;
       if (nextIdx >= events.length) {
         setPlayIndex(events.length);
-        // Complete the mission
         setTimeout(() => onComplete(), 800);
       } else {
         setPlayIndex(nextIdx);
       }
     }
-
-    setAccuracy(Math.round(((correctCount + (isCorrect ? 1 : 0)) / (attempts + 1)) * 100));
   };
 
   // Helper mapping octave-agnostic roots to chord triads
@@ -293,6 +397,34 @@ export const PracticeModeWorkspace: React.FC<PracticeModeWorkspaceProps> = ({
           </div>
         )}
 
+        {/* ── Timed Practice toggle (Play tab only) ─────────────────── */}
+        {phraseTab === 'play' && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px' }}>
+            <button
+              onClick={() => setTimedMode(m => !m)}
+              style={{
+                padding: '7px 18px',
+                borderRadius: '20px',
+                border: `1px solid ${timedMode ? '#f59e0b' : 'rgba(255,255,255,0.15)'}`,
+                background: timedMode ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                color: timedMode ? '#f59e0b' : 'var(--text-secondary)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                letterSpacing: '0.03em',
+              }}
+            >
+              ⏱ Timed Practice: {timedMode ? 'ON' : 'OFF'}
+            </button>
+            {timedMode && (
+              <span style={{ fontSize: '0.75rem', color: '#f59e0b', fontFamily: 'monospace' }}>
+                {controller.currentTime.toFixed(2)}s
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Scrolling Note Visualizer Container */}
         <div style={{
           position: 'relative',
@@ -413,6 +545,77 @@ export const PracticeModeWorkspace: React.FC<PracticeModeWorkspaceProps> = ({
         background: 'var(--bg-card, #1a1a3e)',
         padding: '16px 0 24px',
       }}>
+
+        {/* ── Adaptive toast ──────────────────────────────────────────── */}
+        {adaptiveToast && (
+          <div style={{
+            margin: '0 28px 12px',
+            padding: '10px 16px',
+            background: 'rgba(139,92,246,0.15)',
+            border: '1px solid rgba(139,92,246,0.35)',
+            borderRadius: '10px',
+            color: '#c4b5fd',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            textAlign: 'center',
+            animation: 'fadeIn 0.2s ease',
+          }}>
+            🎓 {adaptiveToast}
+          </div>
+        )}
+
+        {/* ── Note result feedback flash ──────────────────────────────── */}
+        {lastResult && (
+          <div style={{
+            margin: '0 28px 12px',
+            padding: '10px 20px',
+            borderRadius: '10px',
+            fontWeight: 700,
+            fontSize: '0.95rem',
+            textAlign: 'center',
+            transition: 'all 0.15s ease',
+            ...(lastResult.result === 'correct'
+              ? { background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', color: '#4ade80' }
+              : lastResult.result === 'early' || lastResult.result === 'late'
+              ? { background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.4)', color: '#fbbf24' }
+              : { background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }),
+          }}>
+            {lastResult.result === 'correct' && '✓ Perfect'}
+            {lastResult.result === 'early'   && `⏱ Too early — wait for the beat (${Math.abs(lastResult.timingDiffMs).toFixed(0)} ms early)`}
+            {lastResult.result === 'late'    && `⏱ Too late (${Math.abs(lastResult.timingDiffMs).toFixed(0)} ms late)`}
+            {lastResult.result === 'incorrect' && `✗ Expected ${lastResult.expectedPitch}`}
+          </div>
+        )}
+
+        {/* ── Adaptive engine HUD ─────────────────────────────────────── */}
+        {adaptiveState && (
+          <div style={{
+            margin: '0 28px 12px',
+            display: 'flex',
+            gap: '10px',
+            justifyContent: 'flex-end',
+            fontSize: '0.72rem',
+            color: 'var(--text-secondary)',
+          }}>
+            <span style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '6px',
+              padding: '3px 9px',
+            }}>
+              Tempo {adaptiveState.tempoMultiplier}x
+            </span>
+            <span style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: '6px',
+              padding: '3px 9px',
+            }}>
+              Hints: {adaptiveState.assistanceLevel > 0 ? `Level ${adaptiveState.assistanceLevel}` : 'Off'}
+            </span>
+          </div>
+        )}
+
         {chordInfo && (
           <div style={{
             background: 'rgba(59, 130, 246, 0.1)',

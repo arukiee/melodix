@@ -62,8 +62,6 @@ class BPMDetector:
         
         Returns BPM result dict with Melodix-computed confidence.
         """
-        import librosa
-
         # ── 1. Load audio ─────────────────────────────────────────────────
         from app.storage.minio_service import minio_service
 
@@ -71,18 +69,82 @@ class BPMDetector:
         if not content:
             raise ValueError(f"Failed to download audio: {audio_asset.storage_path}")
 
-        ext = audio_asset.format
-        with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
+        ext = (audio_asset.format or "").lower().lstrip(".")
+        if not ext and audio_asset.storage_path:
+            ext = os.path.splitext(audio_asset.storage_path)[1].lower().lstrip(".")
+        if not ext and getattr(audio_asset, "filename", None):
+            ext = os.path.splitext(audio_asset.filename)[1].lower().lstrip(".")
+
+        with tempfile.NamedTemporaryFile(suffix=f".{ext or 'tmp'}", delete=False) as tmp:
             tmp.write(content)
             audio_path = tmp.name
 
         try:
-            # librosa loads and resamples
+            # Check whether source is MIDI or audio
+            is_midi = (
+                ext in {"mid", "midi", "audio/midi", "audio/x-midi"}
+                or (audio_asset.storage_path and audio_asset.storage_path.lower().endswith((".mid", ".midi")))
+                or (getattr(audio_asset, "filename", None) and str(audio_asset.filename).lower().endswith((".mid", ".midi")))
+                or content.startswith(b"MThd")
+            )
+
+            if is_midi:
+                return self._detect_midi_bpm(audio_path)
+
+            import librosa
+
+            # Audio-based tempo detection with librosa
             y, sr = librosa.load(audio_path, sr=22050, mono=True)
             return self.detect_bpm(y, sr)
         finally:
             if os.path.exists(audio_path):
                 os.unlink(audio_path)
+
+    def _detect_midi_bpm(self, midi_path: str) -> BPMResult:
+        """Read tempo and beat positions from a MIDI file using pretty_midi without librosa."""
+        import pretty_midi
+
+        midi = pretty_midi.PrettyMIDI(midi_path)
+        tempo_times, tempo_values = midi.get_tempo_changes()
+        if len(tempo_values) == 0 or tempo_values[0] <= 0:
+            tempo = float(midi.estimate_tempo()) if midi.get_end_time() > 0 else 120.0
+        else:
+            tempo = float(tempo_values[0])
+
+        beat_times = [float(value) for value in midi.get_beats()]
+        confidence = self._midi_confidence(tempo, beat_times)
+
+        # Detect time signature from MIDI if available
+        time_signature = "4/4"
+        if getattr(midi, "time_signature_changes", None) and len(midi.time_signature_changes) > 0:
+            ts = midi.time_signature_changes[0]
+            time_signature = f"{ts.numerator}/{ts.denominator}"
+
+        result = BPMResult({
+            "tempo_bpm": round(tempo, 2),
+            "beat_times": [round(value, 4) for value in beat_times],
+            "confidence": round(confidence, 4),
+            "time_signature": time_signature,
+            "method": "pretty_midi_tempo_changes",
+            "engine_version": self.ENGINE_VERSION,
+        })
+        logger.info(
+            "MIDI BPM detected: %.1f BPM, confidence=%.2f, beats=%d, time_sig=%s",
+            tempo,
+            confidence,
+            len(beat_times),
+            time_signature,
+        )
+        return result
+
+    @staticmethod
+    def _midi_confidence(tempo: float, beat_times: list[float]) -> float:
+        if tempo <= 0 or len(beat_times) < 3:
+            return 0.0
+        intervals = np.diff(beat_times)
+        expected = 60.0 / tempo
+        deviation = float(np.mean(np.abs(intervals - expected)))
+        return max(0.0, min(1.0, 1.0 - deviation / max(expected, 0.001)))
 
     def detect_bpm(self, y: np.ndarray, sr: int) -> BPMResult:
         """

@@ -4,6 +4,7 @@ export interface SearchResult {
   id: string;
   title: string;
   artist: string;
+  album?: string;
   provider: string;
   difficulty: string;
   hasMidi: boolean;
@@ -21,8 +22,15 @@ export interface ImportCommitResponse {
   message: string;
 }
 
+export interface SpotifySelectResponse {
+  success: boolean;
+  song_id: string;
+  processing_job_id?: string;
+  message: string;
+}
+
 export const searchApi = {
-  searchSongs: async (query: string, filters: Record<string, any> = {}): Promise<SearchResult[]> => {
+  searchSongs: async (query: string, filters: Record<string, any> = {}, signal?: AbortSignal): Promise<SearchResult[]> => {
     const params = new URLSearchParams();
     params.append('q', query);
     for (const [key, value] of Object.entries(filters)) {
@@ -30,7 +38,19 @@ export const searchApi = {
         params.append(key, String(value));
       }
     }
-    const response = await apiClient.get<SearchResult[]>(`/songs/search?${params.toString()}`);
+    const response = await apiClient.get<SearchResult[]>(`/songs/search?${params.toString()}`, { signal });
+    return response.data;
+  },
+
+  selectTrack: async (result: SearchResult): Promise<SpotifySelectResponse> => {
+    const response = await apiClient.post<SpotifySelectResponse>('/songs/select', {
+      spotify_track_id: result.id,
+      title: result.title,
+      artist: result.artist,
+      album: result.album,
+      duration_ms: result.duration ? result.duration * 1000 : undefined,
+      album_art_url: result.thumbnailUrl,
+    });
     return response.data;
   },
 
@@ -40,9 +60,9 @@ export const searchApi = {
       title: result.title,
       artist: result.artist,
       provider: result.provider,
-      // Pass video ID so backend stores the YouTube URL for audio download
-      youtube_id: result.provider === 'YouTube' ? result.id : '',
+      youtube_id: '',
     });
     return response.data;
   }
 };
+

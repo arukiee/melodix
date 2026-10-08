@@ -29,6 +29,18 @@ export function Login() {
     }
   }, [isAuthenticated, profile, navigate]);
 
+  const extractError = (err: any, fallback: string): string => {
+    const detail = err.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d: any) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d))).join(', ');
+    }
+    if (detail && typeof detail === 'object') {
+      return detail.msg || detail.message || JSON.stringify(detail);
+    }
+    return err.message || fallback;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -42,7 +54,7 @@ export function Login() {
       });
       await login(data.access_token, data.refresh_token);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to login');
+      setError(extractError(err, 'Failed to login'));
     }
   };
 
@@ -61,7 +73,7 @@ export function Login() {
         setPendingGoogleCredential(credentialResponse.credential);
         setShowLinkModal(true);
       } else {
-        setError(err.response?.data?.detail || 'Google authentication failed');
+        setError(extractError(err, 'Google authentication failed'));
       }
     }
   };
@@ -75,7 +87,7 @@ export function Login() {
       setShowLinkModal(false);
       await login(data.access_token, data.refresh_token);
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Failed to link accounts');
+      setError(extractError(err, 'Failed to link accounts'));
       setShowLinkModal(false);
     }
   };
@@ -163,7 +175,7 @@ export function Login() {
               onError={() => setError('Google authentication failed')}
               theme="filled_black"
               size="large"
-              width="100%"
+              width="350"
               text="continue_with"
             />
           </div>

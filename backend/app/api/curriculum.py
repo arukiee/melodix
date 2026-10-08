@@ -134,7 +134,10 @@ def get_student_learning_state(
         "skill_levels": state.skill_levels or {},
         "weak_areas": state.weak_areas or [],
         "practice_streak_days": state.practice_streak_days,
-        "total_xp": state.total_xp
+        "total_xp": state.total_xp,
+        "current_difficulty": state.current_difficulty,
+        "performance_history": state.performance_history or {},
+        "practice_sessions": state.practice_sessions or {},
     }
 
 @router.post("/student/checkpoint-attempt")

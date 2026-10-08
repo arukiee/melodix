@@ -1,0 +1,28 @@
+experiment_id: cnn_bilstm_v1
+seed: 2026
+device: auto
+sample_rate: 16000
+n_fft: 2048
+hop_length: 320
+n_mels: 128
+f_min: 27.5
+f_max: 4186.0
+segment_seconds: 5.0
+overlap_seconds: 1.0
+batch_size: 8
+epochs: 50
+learning_rate: 0.0005
+weight_decay: 0.00001
+onset_weight: 1.0
+frame_weight: 1.0
+offset_weight: 0.5
+velocity_weight: 0.25
+onset_threshold: 0.5
+frame_threshold: 0.5
+offset_threshold: 0.5
+patience: 8
+augmentation:
+  enabled: true
+  noise_snr_db: [10, 30]
+  gain_db: [-6, 6]
+  time_shift_ms: [-80, 80]

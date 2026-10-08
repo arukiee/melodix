@@ -22,34 +22,20 @@ export const SongDetailModal: React.FC<Props> = ({ song, onClose }) => {
     setImporting(true);
     setError(null);
     try {
-      // 1. Ensure song is in our DB
-      const res = await searchApi.importFromSearch(song);
+      // Send Spotify track selection to backend
+      const res = await searchApi.selectTrack(song);
       if (!res.success || !res.song_id) {
-        throw new Error(res.message || "Failed to sync song metadata");
+        throw new Error(res.message || "Failed to select song");
       }
       
       const songId = res.song_id;
 
-      // 2. Ask the backend to resolve the source and analyze
-      try {
-        const pipelineRes = await importSong(songId);
-        // It will return a processing_job_id from the source discovery
-        if (pipelineRes.processing_job_id) {
-          navigate(`/processing/${pipelineRes.processing_job_id}`);
-        } else {
-          navigate(`/song/${songId}?diff=${difficulty.toLowerCase()}`);
-        }
-        onClose();
-      } catch (importErr: any) {
-        // If it failed due to missing source (400), we show the error and the upload box
-        if (importErr.message.includes('No valid MIDI or Audio source found')) {
-          setError("This song doesn't currently have an analyzable source. Try another version or upload a fallback file below.");
-          // We attach the songId to the component state so the upload handler can use it
-          setPendingUploadSongId(songId);
-        } else {
-          throw importErr;
-        }
+      if (res.processing_job_id) {
+        navigate(`/processing/${res.processing_job_id}`);
+      } else {
+        navigate(`/song/${songId}?diff=${difficulty.toLowerCase()}`);
       }
+      onClose();
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Failed to process song");
     } finally {
@@ -78,7 +64,7 @@ export const SongDetailModal: React.FC<Props> = ({ song, onClose }) => {
   };
 
   // True pipeline states
-  const hasChords = song.hasChords || song.provider.toLowerCase() === 'youtube';
+  const hasChords = song.hasChords;
   const hasMidi = song.hasMidi;
   const hasAudio = false; 
   const hasTranscription = false;
@@ -127,9 +113,13 @@ export const SongDetailModal: React.FC<Props> = ({ song, onClose }) => {
                 {song.artist}
               </p>
               <div style={{ display: 'flex', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                <span>{song.duration ? `${Math.floor(song.duration / 60)}:${(song.duration % 60).toString().padStart(2, '0')}` : 'Unknown'}</span>
-                <span>•</span>
-                <span>{song.provider}</span>
+                <span>{song.duration ? `${Math.floor(song.duration / 60)}:${(song.duration % 60).toString().padStart(2, '0')}` : 'Unknown duration'}</span>
+                {song.album && (
+                  <>
+                    <span>•</span>
+                    <span>{song.album}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>

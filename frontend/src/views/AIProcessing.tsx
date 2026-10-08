@@ -61,7 +61,8 @@ export function AIProcessing() {
           // Add a small delay for the user to see 100% completion
           setTimeout(() => navigate(`/studio/${jobId}`), 1500);
         } else if (normalizedStatus === 'failed') {
-          setError(data.stage_log[data.stage_log.length - 1]?.result || 'Processing failed');
+          const lastLog = data.stage_log?.[data.stage_log.length - 1];
+          setError(data.error_message || lastLog?.error || lastLog?.result || 'Processing failed');
         } else {
           // Keep polling
           setTimeout(poll, 1000);

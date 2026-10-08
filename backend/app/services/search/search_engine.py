@@ -1,10 +1,14 @@
 import asyncio
-from typing import List, Optional
+import logging
+from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 import difflib
+from fastapi import HTTPException, status
 
 from app.schemas.search import SearchResult, SearchFilter
 from app.services.search.base_provider import BaseSearchProvider
+
+logger = logging.getLogger("melodix.search.engine")
 
 class SearchEngine:
     def __init__(self):
@@ -24,12 +28,12 @@ class SearchEngine:
         Concurrently searches all registered providers with a timeout.
         """
         results: List[SearchResult] = []
+        errors: Dict[str, str] = {}
         
         # Concurrently search
         tasks = []
         for provider in self.providers:
-            # We use a 3.0 second timeout for external providers to ensure the UI feels snappy
-            task = asyncio.create_task(self._safe_search(provider, query, filters, db))
+            task = asyncio.create_task(self._safe_search(provider, query, filters, db, errors))
             tasks.append(task)
             
         provider_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -38,18 +42,38 @@ class SearchEngine:
             if isinstance(res_list, list):
                 results.extend(res_list)
                 
+        logger.info(f"Search query='{query}': found {len(results)} total results from {len(self.providers)} providers. Failures: {errors}")
+
+        # If no results were found and all external providers failed with network/API errors:
+        if not results and errors:
+            external_count = len([p for p in self.providers if p.provider_name != "Local Library"])
+            failed_external_count = len([k for k in errors if k != "Local Library"])
+            if failed_external_count >= external_count and external_count > 0:
+                err_details = "; ".join(f"{k}: {v}" for k, v in errors.items())
+                logger.error(f"Search query='{query}' failed because all external providers were unreachable: {err_details}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Search services currently unreachable ({err_details}). Please check network connection or try local pieces.",
+                )
+
         # Apply smart ranking
         ranked_results = self._rank_results(query, results)
         return ranked_results
 
-    async def _safe_search(self, provider: BaseSearchProvider, query: str, filters: Optional[SearchFilter], db: Optional[Session]) -> List[SearchResult]:
+    async def _safe_search(self, provider: BaseSearchProvider, query: str, filters: Optional[SearchFilter], db: Optional[Session], errors: Dict[str, str]) -> List[SearchResult]:
         try:
-            return await asyncio.wait_for(provider.search(query, filters, db=db), timeout=5.0)
+            res = await asyncio.wait_for(provider.search(query, filters, db=db), timeout=4.0)
+            logger.info(f"Provider '{provider.provider_name}' returned {len(res)} results for query='{query}'")
+            return res
         except asyncio.TimeoutError:
-            print(f"Provider {provider.provider_name} timed out.")
+            err_msg = "Request timed out after 4.0s"
+            logger.warning(f"Provider '{provider.provider_name}' timed out for query '{query}'")
+            errors[provider.provider_name] = err_msg
             return []
         except Exception as e:
-            print(f"Provider {provider.provider_name} failed: {e}")
+            err_msg = str(e)
+            logger.warning(f"Provider '{provider.provider_name}' failed for query '{query}': {err_msg}")
+            errors[provider.provider_name] = err_msg
             return []
             
     def _rank_results(self, query: str, results: List[SearchResult]) -> List[SearchResult]:
@@ -108,3 +132,6 @@ search_engine.register_provider(local_db_provider)
 search_engine.register_provider(ultimate_guitar_provider)
 search_engine.register_provider(youtube_provider)
 search_engine.register_provider(bitmidi_provider)
+
+from app.services.search.providers.itunes import itunes_provider
+search_engine.register_provider(itunes_provider)

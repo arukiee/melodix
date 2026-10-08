@@ -1,0 +1,14 @@
+services:
+  ml_training:
+    build:
+      context: .
+      dockerfile: ml/Dockerfile.train
+    image: melodix-ml-training:py312-cpu
+    environment:
+      PYTHONUNBUFFERED: "1"
+      PYTHONPATH: /workspace
+    volumes:
+      - ./ml:/workspace/ml
+      - ./ml/checkpoints:/workspace/ml/checkpoints
+      - ./ml/reports:/workspace/ml/reports
+    command: ["python", "ml/training/train_transcription.py", "--smoke", "--config", "ml/configs/transcription.yaml", "--device", "cpu"]

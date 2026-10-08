@@ -4,6 +4,7 @@ import { Music, Home, Play, Compass, BarChart2, User, Users, FileText, ChevronDo
 import { useUser } from '../context/UserContext';
 import { AccessibilityPanel } from './AccessibilityPanel';
 import { MicMidiHUD } from './MicMidiHUD';
+import { UniversalSearch } from './Library/UniversalSearch';
 import styles from './Layout.module.css';
 
 interface LayoutProps {
@@ -136,9 +137,8 @@ export function Layout({ children, role = 'student' }: LayoutProps) {
       
       <main className={styles.mainContent}>
         <header className={styles.topBar}>
-          <div className={styles.searchContainer}>
-            <Search size={18} className={styles.searchIcon} />
-            <input type="text" placeholder="Search lessons, students, or classes..." className={styles.searchInput} />
+          <div className={styles.globalSearch}>
+            <UniversalSearch />
           </div>
           
           <div className={styles.topActions}>

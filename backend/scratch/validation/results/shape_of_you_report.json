@@ -1,0 +1,25 @@
+{
+  "title": "Shape of You",
+  "youtube_url": "https://www.youtube.com/watch?v=JGwWNGJdvx8",
+  "basic_pitch": {
+    "status": "FAILURE",
+    "error": "[Errno 2] No such file or directory: '/Users/arukshithaawkavali/Desktop/ps/backend/ml/checkpoints/latest.pt'"
+  },
+  "melody": {
+    "status": "FAILURE",
+    "error": "TorchCodec is required for load_with_torchcodec. Please install torchcodec to use this function."
+  },
+  "bpm": {
+    "tempo_bpm": 0.0,
+    "confidence": 0.0
+  },
+  "curriculum": {
+    "phrase_count": 0
+  },
+  "ground_truth": {
+    "bpm": 96,
+    "notes": []
+  },
+  "pitch_errors": [],
+  "octave_shifts": []
+}

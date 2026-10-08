@@ -9,6 +9,13 @@ from app.models.curriculum import (
     CurriculumLesson, CurriculumExercise, CurriculumCheckpoint
 )
 from app.models.student_progress import StudentLearningState
+from app.models.discovery import (
+    SavedSong,
+    SongLearningProgress,
+    Classroom,
+    ClassMembership,
+    ClassSongAssignment,
+)
 
 # Expose all models so Alembic metadata can discover them for migrations
 from app.models.audio_asset import AudioAsset

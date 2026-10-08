@@ -38,10 +38,17 @@ class Settings(BaseSettings):
     auth_config: AuthConfig = AuthConfig()
     OLLAMA_HOST: str = "http://ollama:11434"
     OLLAMA_MODEL: str = "llama3"
+    OLLAMA_EMBED_MODEL: str = "nomic-embed-text"
+    EMBEDDING_DIM: int = 768
 
     # Celery
     CELERY_BROKER_URL: str = "redis://redis:6379/0"
     CELERY_RESULT_BACKEND: str = "redis://redis:6379/0"
+
+    # Spotify API
+    SPOTIFY_CLIENT_ID: Optional[str] = None
+    SPOTIFY_CLIENT_SECRET: Optional[str] = None
+
 
 @lru_cache()
 def get_settings() -> Settings:

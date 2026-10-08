@@ -87,9 +87,9 @@ function AppRoutes() {
         <Route path="/teacher/analytics" element={<ProtectedRoute><Layout role="teacher"><TeacherDashboard /></Layout></ProtectedRoute>} />
 
         {/* Full Screen Routes */}
-        <Route path="/studio/:songId" element={<Studio />} />
-        <Route path="/summary/:songId" element={<PracticeSummary />} />
-        <Route path="/processing/:jobId" element={<AIProcessing />} />
+        <Route path="/studio/:songId" element={<ProtectedRoute><Studio /></ProtectedRoute>} />
+        <Route path="/summary/:songId" element={<ProtectedRoute><PracticeSummary /></ProtectedRoute>} />
+        <Route path="/processing/:jobId" element={<ProtectedRoute><AIProcessing /></ProtectedRoute>} />
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

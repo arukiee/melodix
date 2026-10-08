@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Keyboard, Laptop, Mic, Search, Star, Music, Award, Zap } from 'lucide-react';
+import { useUser } from '../context/UserContext';
 import styles from './OnboardingModal.module.css';
 
 export function OnboardingModal() {
+  const { isAuthenticated, isLoading } = useUser();
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [selectedMethod, setSelectedMethod] = useState<string | null>(null);
   const [selectedExperience, setSelectedExperience] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isLoading || !isAuthenticated) {
+      setIsOpen(false);
+      return;
+    }
+
     const hasCompletedOnboarding = localStorage.getItem('melodix_onboarding_complete');
     if (!hasCompletedOnboarding) {
       setIsOpen(true);

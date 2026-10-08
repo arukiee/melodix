@@ -126,6 +126,15 @@
   z-index: 50;
 }
 
+.globalSearch {
+  width: 320px;
+}
+
+.globalSearch > div {
+  max-width: none !important;
+  margin: 0 !important;
+}
+
 .searchContainer {
   display: flex;
   align-items: center;

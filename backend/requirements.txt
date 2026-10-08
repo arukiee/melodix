@@ -1,20 +1,19 @@
+setuptools<81
+bcrypt==4.0.1
 fastapi
 uvicorn
 sqlalchemy
 alembic
 psycopg2-binary
-# psycopg2-binary (commented out to avoid installation issues)
 pydantic
 python-jose
 passlib[bcrypt]
-# bcrypt==4.0.1
 python-dotenv
 email-validator
 python-multipart
 httpx
-# pgvector
+pgvector
 pydantic-settings
-# pytest
 minio
 redis>=5.0,<6.0
 celery>=5.4,<5.5
@@ -27,6 +26,7 @@ yt-dlp
 beautifulsoup4
 # ── Real-data pipeline dependencies ──
 basic-pitch
+demucs
 librosa
 soundfile
 pretty-midi

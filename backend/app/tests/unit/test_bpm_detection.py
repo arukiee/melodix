@@ -22,3 +22,35 @@ def test_bpm_detection(mock_frames_to_time, mock_onset_strength, mock_beat_track
     assert len(result.beat_times) == 2
     assert result.confidence >= 0.0 and result.confidence <= 1.0
     assert result.method == "librosa_beat_track"
+
+
+def test_midi_bpm_detection_uses_pretty_midi(tmp_path, monkeypatch):
+    midi_path = tmp_path / "song.mid"
+    midi_path.write_bytes(b"midi")
+
+    class FakeMidi:
+        def get_tempo_changes(self):
+            return np.array([0.0]), np.array([120.0])
+
+        def get_beats(self):
+            return np.array([0.0, 0.5, 1.0, 1.5])
+
+        def get_end_time(self):
+            return 2.0
+
+    monkeypatch.setattr("pretty_midi.PrettyMIDI", lambda path: FakeMidi())
+
+    class Asset:
+        format = "mid"
+        storage_path = "songs/song.mid"
+
+    class Storage:
+        def download_bytes(self, path):
+            return b"midi"
+
+    monkeypatch.setattr("app.storage.minio_service.minio_service", Storage())
+    result = BPMDetector().detect(Asset(), None)
+
+    assert result.tempo_bpm == 120.0
+    assert result.method == "pretty_midi_tempo_changes"
+    assert result.beat_times == [0.0, 0.5, 1.0, 1.5]

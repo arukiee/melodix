@@ -16,9 +16,12 @@ import hashlib
 import logging
 import asyncio
 import re
+from app.schemas.search import SearchResult, SearchFilter
+from app.services.search.search_engine import search_engine
 import tempfile
 import os
-from typing import Optional
+import subprocess
+from typing import Optional, List
 from pathlib import Path
 from sqlalchemy.orm import Session
 
@@ -32,6 +35,20 @@ logger = logging.getLogger(__name__)
 
 
 class SourceDiscoveryService:
+
+    @staticmethod
+    def _extract_youtube_url(song: Song) -> Optional[str]:
+        file_url = (song.file_url or '').strip()
+        if not file_url:
+            return None
+
+        if file_url.startswith(('https://www.youtube.com/watch?', 'https://youtube.com/watch?', 'https://youtu.be/')):
+            return file_url
+
+        if re.fullmatch(r'[A-Za-z0-9_-]{11}', file_url):
+            return f'https://www.youtube.com/watch?v={file_url}'
+
+        return None
 
     @staticmethod
     async def discover_and_analyze(
@@ -54,7 +71,8 @@ class SourceDiscoveryService:
             logger.info(f"BitMidi source found for '{song.title}' → job {job_id}")
             return job_id
 
-        # ── Strategy 2: YouTube audio via yt-dlp ──────────────────────────
+        # ── Strategy 2: YouTube audio via yt-dlp (Spotify-guided search & rank) ──────
+        # First try a direct URL if the song already has one
         youtube_url = SourceDiscoveryService._extract_youtube_url(song)
         if youtube_url:
             logger.info(f"Trying YouTube audio download for '{song.title}' from {youtube_url}")
@@ -64,6 +82,56 @@ class SourceDiscoveryService:
             if job_id:
                 logger.info(f"YouTube audio queued for '{song.title}' → job {job_id}")
                 return job_id
+
+        # Spotify metadata lookup (source of truth for title, artist, album, duration)
+        spotify_meta = None
+        try:
+            from app.services.spotify_client import search_spotify_track
+            raw_query = f"{song.title} {song.composer or song.artist or ''}".strip()
+            spotify_meta = search_spotify_track(raw_query)
+            if spotify_meta:
+                logger.info(f"Spotify metadata found for '{song.title}': '{spotify_meta['title']}' by {spotify_meta['artist']} ({spotify_meta['duration_ms']/1000:.1f}s)")
+                # Save metadata onto song record
+                song.title = spotify_meta["title"]
+                if spotify_meta.get("artist"):
+                    song.artist = spotify_meta["artist"]
+                if spotify_meta.get("album"):
+                    song.album = spotify_meta["album"]
+                if spotify_meta.get("duration_ms"):
+                    song.duration = int(spotify_meta["duration_ms"] / 1000)
+                db.commit()
+        except Exception as e:
+            logger.warning(f"Spotify metadata fetch failed: {e}")
+
+        # Fallback: search YouTube for the best candidate (up to 10 results)
+        youtube_provider = search_engine.get_provider("YouTube")
+        if youtube_provider:
+            if spotify_meta:
+                yt_query = f"{spotify_meta['title']} {spotify_meta['artist']}".strip()
+            else:
+                yt_query = f"{song.title} {song.composer or song.artist or ''}".strip()
+
+            logger.info(f"Searching YouTube for best audio candidate: '{yt_query}'")
+            try:
+                raw_results = await youtube_provider.search(yt_query, filters=SearchFilter(limit=10))
+            except Exception as e:
+                logger.warning(f"YouTube search failed: {e}")
+                raw_results = []
+            if raw_results:
+                candidates = list(raw_results)
+                best = select_best_candidate(candidates, spotify_metadata=spotify_meta)
+                ordered = [best] + [r for r in candidates if r.id != best.id] if best else candidates
+                for cand in ordered:
+                    is_low_conf = getattr(cand, "low_confidence_match", False)
+                    logger.info(f"Selected YouTube candidate: {cand.title} ({cand.id}) from channel {cand.artist} [low_confidence={is_low_conf}]")
+                    candidate_url = f"https://www.youtube.com/watch?v={cand.id}"
+                    job_id = await SourceDiscoveryService._try_youtube_audio(
+                        song, user_id, db, candidate_url
+                    )
+                    if job_id:
+                        logger.info(f"YouTube audio queued for '{song.title}' using candidate {cand.id} → job {job_id}")
+                        return job_id
+
 
         logger.info(f"No automatic source found for '{song.title}'")
         return None
@@ -124,16 +192,67 @@ class SourceDiscoveryService:
     # Strategy 2: YouTube audio via yt-dlp
     # ──────────────────────────────────────────────────────────────────────
 
+    # Path to Homebrew-installed ffmpeg; also checked on $PATH as fallback.
+    _FFMPEG_LOCATION: str = "/opt/homebrew/bin"
+
     @staticmethod
-    def _extract_youtube_url(song: Song) -> Optional[str]:
-        """Extract YouTube URL from song.file_url if it points to YouTube."""
-        if not song.file_url:
-            return None
-        url = song.file_url.strip()
-        # Accept youtube.com/watch?v=... or youtu.be/... links
-        if "youtube.com/watch" in url or "youtu.be/" in url:
-            return url
-        return None
+    def _download_youtube_audio(youtube_url: str) -> Path:
+        """
+        Download audio from YouTube using yt-dlp and return the path to the downloaded file.
+        Used by the validation script for direct access to the raw wav.
+
+        Uses ``--impersonate chrome-131`` (requires curl_cffi) to bypass
+        YouTube's SABR/JS-challenge bot detection, and ``--ffmpeg-location``
+        so ffmpeg is found even when it isn't on the shell PATH.
+        """
+        # Create a temporary directory for the download; it will persist for the duration of the process.
+        tmpdir = tempfile.mkdtemp()
+        output_template = os.path.join(tmpdir, "%(title)s.%(ext)s")
+        cmd = [
+            "yt-dlp",
+            "--extract-audio",
+            "--audio-quality", "0",
+            "--no-playlist",
+            "--no-warnings",
+            "--ignore-errors",
+            "--retries", "3",
+            "--socket-timeout", "15",
+            # Use android,web client to bypass SABR/JS challenge without failing on unsupported impersonation.
+            "--extractor-args", "youtube:player_client=android,web",
+            # Ensure ffmpeg is found even if not on $PATH.
+            "--ffmpeg-location", SourceDiscoveryService._FFMPEG_LOCATION,
+            "--output", output_template,
+            youtube_url,
+        ]
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300)
+        except Exception as e:
+            logger.error(f"yt-dlp download failed: {e}")
+            raise
+        # Locate the downloaded file (any extension yt-dlp chose)
+        downloaded_files = list(Path(tmpdir).iterdir())
+        if not downloaded_files:
+            raise RuntimeError("yt-dlp produced no files")
+        # Prefer .wav files if present
+        wav_files = [p for p in downloaded_files if p.suffix.lower() == ".wav"]
+        if wav_files:
+            wav_path = wav_files[0]
+        else:
+            # Convert the first file to WAV using ffmpeg
+            src = downloaded_files[0]
+            wav_path = src.with_suffix('.wav')
+            ffmpeg_bin = os.path.join(SourceDiscoveryService._FFMPEG_LOCATION, "ffmpeg")
+            convert_cmd = [ffmpeg_bin, "-y", "-i", str(src), str(wav_path)]
+            try:
+                subprocess.run(convert_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except Exception as conv_err:
+                logger.error(f"ffmpeg conversion failed: {conv_err}")
+                raise
+            try:
+                src.unlink(missing_ok=True)
+            except Exception:
+                pass
+        return wav_path
 
     @staticmethod
     async def _try_youtube_audio(
@@ -142,30 +261,27 @@ class SourceDiscoveryService:
         db: Session,
         youtube_url: str,
     ) -> Optional[uuid.UUID]:
-        """
-        Download audio from YouTube using yt-dlp, save to MinIO, and queue the
-        full audio analysis pipeline.
+        """Download YouTube audio via yt-dlp, then persist and queue the asset.
 
-        yt-dlp is called with:
-          --format bestaudio[ext=m4a]/bestaudio/best
-          --extract-audio --audio-format wav
-          --audio-quality 0
-        so Basic Pitch receives a WAV file.
+        Used by discover_and_analyze when a YouTube URL is available.
         """
+        # Create temporary directory for yt-dlp output
         with tempfile.TemporaryDirectory() as tmpdir:
-            output_template = os.path.join(tmpdir, "audio.%(ext)s")
+            output_template = os.path.join(tmpdir, "%(title)s.%(ext)s")
             cmd = [
-                "python3", "-m", "yt_dlp",
-                youtube_url,
-                "--format", "bestaudio[ext=m4a]/bestaudio/best",
+                "yt-dlp",
                 "--extract-audio",
                 "--audio-format", "wav",
                 "--audio-quality", "0",
                 "--no-playlist",
                 "--no-warnings",
+                # Bypass SABR/JS challenge via TLS fingerprint impersonation.
+                "--impersonate", "chrome-131",
+                # Ensure ffmpeg is found even if not on $PATH.
+                "--ffmpeg-location", SourceDiscoveryService._FFMPEG_LOCATION,
                 "--output", output_template,
+                youtube_url,
             ]
-            logger.info(f"yt-dlp command: {' '.join(cmd)}")
 
             try:
                 proc = await asyncio.create_subprocess_exec(
@@ -191,15 +307,13 @@ class SourceDiscoveryService:
                 )
                 return None
 
-            # Find the downloaded WAV file
             wav_files = list(Path(tmpdir).glob("*.wav"))
             if not wav_files:
-                # yt-dlp may have saved as a different extension
                 all_files = list(Path(tmpdir).iterdir())
                 if not all_files:
                     logger.error("yt-dlp produced no output files")
                     return None
-                wav_files = all_files  # Use whatever was downloaded
+                wav_files = all_files
 
             audio_path = wav_files[0]
             raw_data = audio_path.read_bytes()
@@ -212,7 +326,6 @@ class SourceDiscoveryService:
             f"Downloaded {len(raw_data) / 1_048_576:.1f} MB from YouTube for '{song.title}'"
         )
 
-        # Determine file extension
         audio_format = "wav"
         content_type = "audio/wav"
 
@@ -225,6 +338,7 @@ class SourceDiscoveryService:
             user_id=user_id,
             db=db,
         )
+
 
     # ──────────────────────────────────────────────────────────────────────
     # Shared: persist asset + queue Celery task
@@ -318,3 +432,57 @@ class SourceDiscoveryService:
             logger.warning(f"Celery dispatch failed (job saved, will retry): {e}")
 
         return job_id
+
+def select_best_candidate(
+    results: List[SearchResult],
+    spotify_metadata: Optional[dict] = None,
+) -> Optional[SearchResult]:
+    """Select the best YouTube candidate using Spotify duration matching (±3s) or keyword fallback."""
+    if not results:
+        return None
+
+    excluded_keywords = ['live', 'reaction', 'tutorial', 'mashup', 'concert', 'full album', '1 hour', 'extended mix']
+    preferred_keywords = ['official audio', 'official video']
+
+    def _score(r: SearchResult) -> float:
+        s = 0.0
+        title_lower = (getattr(r, 'title', '') or '').lower()
+        if any(kw in title_lower for kw in preferred_keywords):
+            s += 100
+        s += getattr(r, 'popularity', 0) / 1_000_000
+        return s
+
+    # 1. Spotify Duration Match (tolerance ±3.0 seconds)
+    if spotify_metadata and spotify_metadata.get("duration_ms"):
+        spotify_sec = spotify_metadata["duration_ms"] / 1000.0
+        duration_matched = [
+            r for r in results
+            if abs(getattr(r, 'duration', 0) - spotify_sec) <= 3.0
+            and not any(kw in (getattr(r, 'title', '') or '').lower() for kw in excluded_keywords)
+        ]
+        if duration_matched:
+            topic_matches = [
+                r for r in duration_matched
+                if (getattr(r, 'artist', '') or '').endswith(' Topic')
+            ]
+            best = topic_matches[0] if topic_matches else max(duration_matched, key=_score)
+            best.low_confidence_match = False
+            return best
+
+    # 2. Fallback: Keyword & Popularity Scoring (low_confidence_match = True if Spotify duration matched 0 candidates)
+    candidates = [
+        r for r in results
+        if 60 <= getattr(r, 'duration', 0) <= 480
+        and not any(kw in (getattr(r, 'title', '') or '').lower() for kw in excluded_keywords)
+    ]
+    if not candidates:
+        candidates = results
+
+    topic_matches = [
+        r for r in candidates
+        if (getattr(r, 'artist', '') or '').endswith(' Topic')
+    ]
+    best = topic_matches[0] if topic_matches else max(candidates, key=_score)
+    best.low_confidence_match = spotify_metadata is not None
+    return best
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import styles from './PianoKeyboard.module.css';
 import type { TimelineNote } from '../../services/timeline';
 import { audioEngine } from '../../services/audioEngine';
@@ -8,14 +8,21 @@ interface PianoKeyboardProps {
   isPlaying?: boolean;
   timelineNotes?: TimelineNote[];
   highlightNotes?: string[];
+  highlightedNotes?: string[];
   onNotePlay?: (note: string) => void;
 }
 
-export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = [], onNotePlay }: PianoKeyboardProps) {
+const EMPTY_TIMELINE_NOTES: TimelineNote[] = [];
+const EMPTY_HIGHLIGHT_NOTES: string[] = [];
+
+export function PianoKeyboard({ isPlaying, timelineNotes = EMPTY_TIMELINE_NOTES, highlightNotes, highlightedNotes, onNotePlay }: PianoKeyboardProps) {
+  const activeHighlights = highlightNotes ?? highlightedNotes ?? EMPTY_HIGHLIGHT_NOTES;
   const [numKeys, setNumKeys] = useState(61);
   const [activeKeys, setActiveKeys] = useState<Set<number>>(new Set());
-  const [currentKeyMap, setCurrentKeyMap] = useState<Record<string, number>>({});
   const isMouseDown = useRef(false);
+  const onNotePlayRef = useRef(onNotePlay);
+  onNotePlayRef.current = onNotePlay;
+  const currentKeyMap = useMemo(() => keyboardMapper.generateMapping(timelineNotes), [timelineNotes]);
 
   useEffect(() => {
     const updateKeys = () => {
@@ -41,10 +48,6 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
     };
   }, []);
 
-  useEffect(() => {
-    setCurrentKeyMap(keyboardMapper.generateMapping(timelineNotes));
-  }, [timelineNotes]);
-
   const getMidiNoteIndex = (midiName: string): number => {
     return keyboardMapper.getMidiNoteIndex(midiName);
   };
@@ -62,7 +65,7 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
         const noteName = getNoteNameFromIndex(index);
         audioEngine.playNote(noteName);
         setActiveKeys(prev => new Set(prev).add(index));
-        if (onNotePlay) onNotePlay(noteName);
+        onNotePlayRef.current?.(noteName);
       }
     };
 
@@ -90,7 +93,7 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
           const noteName = getNoteNameFromIndex(index);
           audioEngine.playNote(noteName, velocity / 127);
           setActiveKeys(prev => new Set(prev).add(index));
-          if (onNotePlay) onNotePlay(noteName);
+          onNotePlayRef.current?.(noteName);
         }
       } else if (command === 128 || (command === 144 && velocity === 0)) { // Note off
         const index = note - 24;
@@ -108,8 +111,10 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
       }
     };
 
+    let disposed = false;
     if (navigator.requestMIDIAccess) {
       navigator.requestMIDIAccess().then(midiAccess => {
+        if (disposed) return;
         midiAccess.inputs.forEach(input => {
           input.onmidimessage = handleMidiMessage;
         });
@@ -117,10 +122,16 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
     }
 
     return () => {
+      disposed = true;
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      if (navigator.requestMIDIAccess) {
+        navigator.requestMIDIAccess().then(midiAccess => {
+          midiAccess.inputs.forEach(input => { input.onmidimessage = null; });
+        }).catch(() => undefined);
+      }
     };
-  }, [numKeys, onNotePlay, currentKeyMap]);
+  }, [numKeys, currentKeyMap]);
 
   const handleKeyInteraction = async (index: number, type: 'down' | 'enter') => {
     if (type === 'enter' && !isMouseDown.current) return;
@@ -178,12 +189,12 @@ export function PianoKeyboard({ isPlaying, timelineNotes = [], highlightNotes = 
               } else if (activeMatch.status === 'wrong') {
                 keyClass += ` ${styles.wrong}`;
               }
-            } else if (!isPlaying && i === 24 && highlightNotes.length === 0) {
+            } else if (!isPlaying && i === 24 && activeHighlights.length === 0) {
               keyClass += ` ${styles.nextNote}`;
             }
 
             // Check highlight notes (from chord strip click)
-            const highlightMatch = highlightNotes.find(note => getMidiNoteIndex(note) === i);
+            const highlightMatch = activeHighlights.find(note => getMidiNoteIndex(note) === i);
             if (highlightMatch) {
               keyClass += ` ${styles.active}`;
             }

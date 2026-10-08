@@ -1,116 +1,48 @@
-version: "3.8"
-
 services:
-  # Application
-  backend:
-    build: ./backend
-    container_name: melodix_backend
-    ports:
-      - "8000:8000"
-    env_file: .env
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
-    volumes:
-      - ./backend:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      minio:
-        condition: service_healthy
-
-  # Database
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: melodix_postgres
+  minio:
+    image: minio/minio
+    ports: ["9000:9000", "9001:9001"]
     environment:
-      POSTGRES_USER: melodix
-      POSTGRES_PASSWORD: melodix_password
-      POSTGRES_DB: melodix
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD","pg_isready","-U","melodix"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      MINIO_ROOT_USER: melodix
+      MINIO_ROOT_PASSWORD: melodix_dev_password
+    command: server /data --console-address ":9001"
+    volumes: ["minio_data:/data"]
 
-  # Cache
   redis:
     image: redis:7-alpine
-    container_name: melodix_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD","redis-cli","ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  # Object Storage
-  minio:
-    image: minio/minio:latest
-    container_name: melodix_minio
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    env_file: .env
-    volumes:
-      - minio_data:/data
-    healthcheck:
-      test: ["CMD","curl","-f","http://localhost:9000/minio/health/ready"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  # Ollama service
-  ollama:
-    image: ollama/ollama:latest
-    container_name: melodix_ollama
-    ports:
-      - "11434:11434"
-    env_file: .env
-    volumes:
-      - ollama_data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    ports: ["6379:6379"]
 
-  celery_worker:
+  backend:
     build: ./backend
-    container_name: melodix_celery_worker
-    env_file: .env
-    command: celery -A app.celery_app worker --loglevel=info
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - redis
-    healthcheck:
-      test: ["CMD", "celery", "-A", "app.celery_app", "inspect", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: sqlite:////app/test.db
+      SECRET_KEY: melodix_super_secret_key_123!
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: melodix
+      MINIO_ROOT_PASSWORD: melodix_dev_password
+      MINIO_BUCKET: melodix
+      MINIO_SECURE: "false"
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+    depends_on: [minio, redis]
+    volumes: ["./backend:/app"]
 
-  celery_beat:
+  celery-worker:
     build: ./backend
-    container_name: melodix_celery_beat
-    env_file: .env
-    command: celery -A app.celery_app beat --loglevel=info
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - redis
-    healthcheck:
-      test: ["CMD", "celery", "-A", "app.celery_app", "status"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    command: celery -A app.celery_app worker --loglevel=info --pool=solo
+    environment:
+      DATABASE_URL: sqlite:////app/test.db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: melodix
+      MINIO_ROOT_PASSWORD: melodix_dev_password
+      MINIO_BUCKET: melodix
+      MINIO_SECURE: "false"
+    depends_on: [redis, minio]
+    volumes: ["./backend:/app"]
 
 volumes:
-  postgres_data:
-  redis_data:
   minio_data:
-  ollama_data:

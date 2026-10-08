@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Float, Text, DateTime
-from app.models.json_type import ConditionalJSON, ConditionalUUID
+from sqlalchemy import Boolean, Column, String, Integer, Float, Text, DateTime
+from app.models.json_type import ConditionalJSON, ConditionalUUID, ConditionalVector
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 from app.models.lesson import lesson_song
@@ -13,11 +13,15 @@ class Song(Base):
     
     title = Column(String(255), nullable=False, index=True)
     composer = Column(String(255), nullable=True)
-    artist = Column(String(255), nullable=True)
-    genre = Column(String(100), nullable=True)
+    artist = Column(String(255), nullable=True, index=True)
+    album = Column(String(255), nullable=True)
+    genre = Column(String(100), nullable=True, index=True)
+    mood = Column(String(100), nullable=True, index=True)
+    language = Column(String(80), nullable=True, index=True)
     difficulty = Column(String(50), nullable=True, index=True)
     
     bpm = Column(Integer, nullable=True)
+    tempo = Column(Integer, nullable=True, index=True)
     key_signature = Column(String(20), nullable=True)
     time_signature = Column(String(20), nullable=True)
     duration = Column(Integer, nullable=True) # in seconds
@@ -25,6 +29,11 @@ class Song(Base):
     source_type = Column(String(50), nullable=True) # MIDI, MUSICXML
     file_url = Column(String(1024), nullable=True)
     thumbnail_url = Column(String(1024), nullable=True)
+    artwork_url = Column(String(1024), nullable=True)
+    skills = Column(ConditionalJSON, default=list)
+    available_arrangements = Column(ConditionalJSON, default=list)
+    is_learnable = Column(Boolean, default=True, index=True)
+    embedding = Column(ConditionalVector(768), nullable=True)
 
     educational_category = Column(String(100), default="Beginner Foundation", index=True)
     learning_objectives = Column(ConditionalJSON, default=list)  # e.g. ["Master 3/4 waltz rhythm", "Execute smooth legato phrasing"]

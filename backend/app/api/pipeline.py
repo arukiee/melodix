@@ -241,8 +241,7 @@ async def get_transcription_notes(
         notes=notes,
     )
 
-from app.services.music_engine.structure import MusicStructureEngine
-from app.services.music_engine.curriculum import LearningPlanGenerator
+from app.services.music_engine.practice_session_service import start_job_session
 
 @router.get(
     "/{job_id}/curriculum",
@@ -254,20 +253,10 @@ async def get_job_curriculum(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    job = db.query(ProcessingJob).filter(
-        ProcessingJob.id == job_id,
-    ).first()
-
-    if not job or not job.transcription:
-        raise HTTPException(status_code=404, detail="Processed job or transcription not found")
-
-    valid_notes = [n for n in job.transcription.notes if n.validation_action != "DISCARD"]
-    bpm = job.provenance.tempo_value if job.provenance and job.provenance.tempo_value else 100.0
-
-    sections = MusicStructureEngine.analyze_structure(valid_notes, bpm)
-    curriculum = LearningPlanGenerator.generate_curriculum(sections, bpm)
-    
-    return curriculum
+    try:
+        return start_job_session(db, current_user.id, job_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 from pydantic import BaseModel
 class ImportSongRequest(BaseModel):

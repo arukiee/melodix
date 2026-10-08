@@ -1,0 +1,29 @@
+{
+  "architecture_version": "frequency_aware_cnn_bilstm_v1",
+  "spectrogram_config": {
+    "sample_rate": 16000,
+    "n_fft": 2048,
+    "hop_length": 320,
+    "n_mels": 128,
+    "f_min": 27.5,
+    "f_max": 4186.0
+  },
+  "frequency_bands": [
+    "low",
+    "mid",
+    "high"
+  ],
+  "random_seed": 2026,
+  "dataset_manifest_hash": "synthetic-smoke",
+  "epoch": 1,
+  "validation_loss": 1.7437896728515625,
+  "validation_metrics": {
+    "validation_loss": 1.7437896728515625,
+    "onset_precision": 0.5050956738768719,
+    "onset_recall": 0.44202766654532216,
+    "onset_f1": 0.4714618520675597
+  },
+  "created_at": "2026-08-26T22:59:38.644920+00:00",
+  "selected_device": "cpu",
+  "pipeline_status": "smoke_test_only"
+}

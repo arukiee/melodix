@@ -1,0 +1,1 @@
+Evaluation reports are generated here by `evaluate_transcription.py`. Empty report directories are retained in the repository; actual metric values must come from a held-out test run and must not be hand-entered.

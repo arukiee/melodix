@@ -1,11 +1,9 @@
-
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Sparkles, Heart } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '../components/Button';
 import { apiClient } from '../api/client';
-import { importSong } from '../api/audio';
 import styles from './SongDetails.module.css';
 
 interface SongDetailData {
@@ -27,7 +25,6 @@ export function SongDetails() {
   const [song, setSong] = useState<SongDetailData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     const fetchSong = async () => {
@@ -64,8 +61,8 @@ export function SongDetails() {
   if (error || !song) {
     return (
       <motion.div className={styles.container} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <Link to="/learn" className={styles.backLink}>
-          <ArrowLeft size={20} /> Back to Discover
+        <Link to="/library" className={styles.backLink}>
+          <ArrowLeft size={20} /> Back to Library
         </Link>
         <div style={{ padding: '24px', color: 'var(--text-secondary)', background: 'var(--surface-color)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
           {error || 'This song hasn’t been analyzed yet.'}
@@ -84,23 +81,9 @@ export function SongDetails() {
     ? JSON.stringify(song.ai_coaching_focus)
     : `Perfect for your current skill level. Focus on expression and control in ${songTitle}.`;
 
-  const handleStartPractice = async () => {
+  const handleStartPractice = () => {
     if (!songId) return;
-
-    try {
-      setIsImporting(true);
-      const result = await importSong(songId);
-      if (result?.processing_job_id) {
-        navigate(`/processing/${result.processing_job_id}`);
-        return;
-      }
-      navigate(`/studio/${songId}`);
-    } catch (err: any) {
-      console.error('Failed to import song for practice', err);
-      setError(err.message || 'Unable to start practice for this song.');
-    } finally {
-      setIsImporting(false);
-    }
+    navigate(`/studio/${songId}`);
   };
 
   return (
@@ -110,8 +93,8 @@ export function SongDetails() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <Link to="/learn" className={styles.backLink}>
-        <ArrowLeft size={20} /> Back to Discover
+      <Link to="/library" className={styles.backLink}>
+        <ArrowLeft size={20} /> Back to Library
       </Link>
 
       <div className={styles.hero}>
@@ -125,9 +108,8 @@ export function SongDetails() {
             <Button 
               variant="primary" 
               onClick={handleStartPractice}
-              disabled={isImporting}
             >
-              {isImporting ? 'Preparing lesson...' : 'Start Practice'}
+              Start Practice
             </Button>
             <button className={styles.favoriteBtn} aria-label="Add to favorites">
               <Heart size={20} />

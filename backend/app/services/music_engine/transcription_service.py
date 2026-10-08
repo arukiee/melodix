@@ -35,6 +35,7 @@ import hashlib
 import logging
 import tempfile
 import os
+import shutil
 import csv
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Tuple
@@ -47,6 +48,8 @@ from app.models.audio_asset import AudioAsset
 from app.models.processing_job import ProcessingJob
 from app.models.transcription import Transcription
 from app.models.transcription_note import TranscriptionNote
+from app.services.music_engine.melody_processor import clean_melody_events, melody_payload
+from app.services.music_engine.source_separator import choose_stem, separate_audio
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +118,8 @@ class TranscriptionService:
         with tempfile.NamedTemporaryFile(suffix=f".{ext}", delete=False) as tmp:
             tmp.write(content)
             audio_path = tmp.name
+        separated_dir = None
+        transcription_audio_path = audio_path
 
         try:
             notes_with_confidence = []
@@ -149,12 +154,26 @@ class TranscriptionService:
                 
                 if not notes_with_confidence:
                     raise ValueError("MIDI file contained no recognizable notes.")
+
+                # Apply the same melody cleanup used for audio sources so we
+                # get a monophonic melody line via the skyline algorithm.
+                notes_with_confidence = clean_melody_events(
+                    notes_with_confidence, audio_path, is_midi=True
+                )
+                if not notes_with_confidence:
+                    raise ValueError(
+                        "Melody cleanup produced no recognizable monophonic notes from MIDI."
+                    )
                     
             else:
-                # ── 4. Run Basic Pitch ────────────────────────────────────────
-                # Basic Pitch handles resampling to 22050 Hz and mono conversion
+                # ── 4. Separate sources before Basic Pitch ─────────────────────
+                separated_dir = tempfile.mkdtemp(prefix="melodix-stems-")
+                stem = choose_stem(audio_asset.original_filename)
+                transcription_audio_path = separate_audio(audio_path, separated_dir, stem)
+                logger.info("Running Basic Pitch on Demucs %s stem", stem)
+
+                # Basic Pitch handles resampling to 22050 Hz and mono conversion.
                 from basic_pitch.inference import predict
-                from basic_pitch import ICASSP_2022_MODEL_PATH
     
                 logger.info(f"Running Basic Pitch on {audio_asset.original_filename} ({audio_asset.file_size_bytes} bytes)")
     
@@ -166,7 +185,7 @@ class TranscriptionService:
                 # - minimum_frequency=80.0Hz (piano low E1 range boundary)
                 # - maximum_frequency=3000.0Hz (piano upper F7 range boundary)
                 model_output, midi_data, note_events = predict(
-                    audio_path,
+                    transcription_audio_path,
                     onset_threshold=0.50,
                     frame_threshold=0.30,
                     minimum_note_length=50.0,
@@ -180,6 +199,11 @@ class TranscriptionService:
                         "The audio may not contain recognizable pitched content."
                     )
 
+                notes_with_confidence = self._compute_note_confidence(note_events, model_output)
+                notes_with_confidence = clean_melody_events(notes_with_confidence, transcription_audio_path)
+                if not notes_with_confidence:
+                    raise ValueError("Melody cleanup produced no recognizable monophonic notes.")
+
             if ext not in ["mid", "midi"]:
                 # ── 5. Save artifacts to MinIO ────────────────────────────────
                 transcription_id = uuid.uuid4()
@@ -187,7 +211,7 @@ class TranscriptionService:
     
                 # Save raw MIDI
                 with tempfile.NamedTemporaryFile(suffix=".mid", delete=False) as midi_tmp:
-                    midi_data.write(midi_tmp.name)
+                    self._write_clean_midi(midi_tmp.name, notes_with_confidence)
                     midi_storage_path = f"{base_path}/raw.mid"
                     minio_service.upload_file(midi_storage_path, midi_tmp.name, "audio/midi")
                     midi_path = midi_storage_path
@@ -217,10 +241,10 @@ class TranscriptionService:
                         "start_time", "end_time", "midi_number",
                         "velocity", "confidence"
                     ])
-                    for event in note_events:
+                    for event in notes_with_confidence:
                         start, end, pitch, vel, conf = (
                             event[0], event[1], int(event[2]),
-                            int(event[3]), float(event[4]) if len(event) > 4 else 0.0
+                            int(event[3]), self._scalar_confidence(event[4]) if len(event) > 4 else 0.0
                         )
                         writer.writerow([
                             round(start, 6), round(end, 6), pitch, vel, round(conf, 6)
@@ -239,11 +263,6 @@ class TranscriptionService:
                 except Exception:
                     bp_version = "unknown"
     
-                # ── 7. Compute Melodix confidence per note ────────────────────
-                notes_with_confidence = self._compute_note_confidence(
-                    note_events, model_output
-                )
-
             # ── 8. Calculate duration ─────────────────────────────────────
             if notes_with_confidence:
                 max_end = max(e[1] for e in notes_with_confidence)
@@ -252,13 +271,30 @@ class TranscriptionService:
 
             processing_time_ms = int((time.time() - start_time) * 1000)
 
-            # ── 9. Create Transcription record ────────────────────────────
+            # ── 9. Create Transcription record (handle retries cleanly) ────
+            existing_transcription = db.query(Transcription).filter(
+                Transcription.processing_job_id == job.id
+            ).first()
+            if existing_transcription:
+                try:
+                    from app.models.difficulty_variant import DifficultyVariant
+                    db.query(DifficultyVariant).filter(
+                        DifficultyVariant.transcription_id == existing_transcription.id
+                    ).delete()
+                except Exception:
+                    pass
+                db.query(TranscriptionNote).filter(
+                    TranscriptionNote.transcription_id == existing_transcription.id
+                ).delete()
+                db.delete(existing_transcription)
+                db.flush()
+
             transcription = Transcription(
                 id=transcription_id,
                 processing_job_id=job.id,
                 audio_asset_id=audio_asset.id,
                 song_id=job.song_id,
-                model_name="basic-pitch",
+                model_name="demucs+basic-pitch+pyin",
                 model_version=bp_version,
                 raw_midi_path=midi_path,
                 model_output_path=model_output_path,
@@ -302,12 +338,33 @@ class TranscriptionService:
                 "note_count": len(notes_with_confidence),
                 "duration_seconds": round(max_end, 3),
                 "processing_time_ms": processing_time_ms,
+                "melody": melody_payload(notes_with_confidence),
             }
 
         finally:
             # Clean up temp audio file
             if os.path.exists(audio_path):
                 os.unlink(audio_path)
+            if separated_dir and os.path.exists(separated_dir):
+                shutil.rmtree(separated_dir, ignore_errors=True)
+
+    @staticmethod
+    def _write_clean_midi(path: str, notes: List[Tuple[float, float, int, int, float]]) -> None:
+        import pretty_midi
+
+        midi = pretty_midi.PrettyMIDI()
+        instrument = pretty_midi.Instrument(program=0, name="Melody")
+        for start, end, pitch, velocity, _ in notes:
+            instrument.notes.append(
+                pretty_midi.Note(
+                    velocity=max(1, min(127, int(velocity))),
+                    pitch=int(pitch),
+                    start=float(start),
+                    end=float(end),
+                )
+            )
+        midi.instruments.append(instrument)
+        midi.write(path)
 
     def _compute_note_confidence(
         self,
@@ -348,6 +405,12 @@ class TranscriptionService:
             notes_with_confidence.append((start, end, pitch, vel, confidence))
 
         return notes_with_confidence
+
+    @staticmethod
+    def _scalar_confidence(value: Any) -> float:
+        """Normalize scalar or nested-list confidence values for artifacts."""
+        array = np.asarray(value).reshape(-1)
+        return float(array[0]) if array.size else 0.0
 
     def _activation_confidence(
         self,

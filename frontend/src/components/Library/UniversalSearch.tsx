@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Loader, Clock, X } from 'lucide-react';
+import { Search, Loader, Clock, X, Music } from 'lucide-react';
 import { searchApi, type SearchResult } from '../../api/search';
 import { SearchHistoryManager } from '../../services/SearchHistoryManager';
 import { SongDetailModal } from './SongDetailModal';
@@ -9,33 +9,55 @@ export const UniversalSearch: React.FC = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSong, setSelectedSong] = useState<SearchResult | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const debounceTimerRef = useRef<any>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const executeSearch = async (searchQuery: string) => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
-    if (!searchQuery.trim()) {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
       setResults([]);
+      setError(null);
       return;
     }
+
+    // Cancel any existing in-flight request to avoid race conditions or duplicate network execution
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setIsOpen(true);
+    setError(null);
     try {
-      const cached = SearchHistoryManager.getCachedResults(searchQuery);
-      if (cached) {
+      const cached = SearchHistoryManager.getCachedResults(trimmed);
+      if (cached && cached.length > 0) {
         setResults(cached);
       } else {
-        const res = await searchApi.searchSongs(searchQuery);
-        setResults(res);
-        SearchHistoryManager.cacheResults(searchQuery, res);
+        const res = await searchApi.searchSongs(trimmed, {}, controller.signal);
+        const validResults = res || [];
+        setResults(validResults);
+        if (validResults.length > 0) {
+          SearchHistoryManager.cacheResults(trimmed, validResults);
+        }
       }
-      SearchHistoryManager.addSearchTerm(searchQuery);
-    } catch (err) {
+      SearchHistoryManager.addSearchTerm(trimmed);
+    } catch (err: any) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') {
+        // Aborted request, do not update error state
+        return;
+      }
       console.error("Search failed:", err);
+      setError(err?.response?.data?.detail || err?.message || "Search failed");
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -152,7 +174,7 @@ export const UniversalSearch: React.FC = () => {
               {recentSearches.map(term => (
                 <div 
                   key={term}
-                  onClick={() => { setQuery(term); setIsOpen(true); }}
+                  onClick={() => { setQuery(term); executeSearch(term); }}
                   style={{
                     display: 'flex', alignItems: 'center', padding: '10px',
                     cursor: 'pointer', borderRadius: '4px', gap: '8px'
@@ -166,7 +188,13 @@ export const UniversalSearch: React.FC = () => {
             </div>
           )}
 
-          {query.trim() && results.length === 0 && !loading && (
+          {error && !loading && (
+            <div style={{ padding: '16px 20px', color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '8px', margin: '12px', fontSize: '0.85rem', lineHeight: '1.4' }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {query.trim() && results.length === 0 && !loading && !error && (
             <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
               No results found for "{query}"
             </div>
@@ -174,37 +202,47 @@ export const UniversalSearch: React.FC = () => {
 
           {results.length > 0 && (
             <div style={{ padding: '8px 0' }}>
-              {results.map(res => (
+              {results.map((res, index) => (
                 <div
-                  key={res.id}
+                  key={`${res.id}-${index}`}
                   onClick={() => {
                     setSelectedSong(res);
                     setIsOpen(false);
                   }}
                   style={{
                     display: 'flex',
-                    flexDirection: 'column',
-                    padding: '12px 16px',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px 16px',
                     cursor: 'pointer',
                     borderBottom: '1px solid var(--border-color)',
                   }}
                   className="hover-bg-light"
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: '600' }}>{res.title}</span>
-                    <span style={{ fontSize: '0.75rem', padding: '2px 6px', background: 'var(--bg-color)', borderRadius: '10px' }}>
-                      {res.provider}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    <span>{res.artist}</span>
-                    <span>•</span>
-                    <span style={{ color: res.difficulty.toLowerCase() === 'beginner' ? '#10b981' : 'inherit' }}>
-                      {res.difficulty}
-                    </span>
-                    {(res.hasMidi || res.hasChords) && <span>•</span>}
-                    {res.hasMidi && <span style={{ color: '#3b82f6' }}>MIDI</span>}
-                    {res.hasChords && <span style={{ color: '#8b5cf6' }}>Chords</span>}
+                  {res.thumbnailUrl ? (
+                    <img
+                      src={res.thumbnailUrl}
+                      alt={res.title}
+                      style={{ width: '44px', height: '44px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }}
+                    />
+                  ) : (
+                    <div style={{ width: '44px', height: '44px', background: 'var(--bg-color)', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Music size={20} color="var(--text-secondary)" />
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: '600', fontSize: '0.95rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {res.title}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '2px' }}>
+                      <span>{res.artist}</span>
+                      {res.duration && (
+                        <>
+                          <span> • </span>
+                          <span>{Math.floor(res.duration / 60)}:{(res.duration % 60).toString().padStart(2, '0')}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

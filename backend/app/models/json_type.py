@@ -57,3 +57,33 @@ class ConditionalUUID(TypeDecorator):
             return _uuid.UUID(value)
         return value
 
+
+class ConditionalVector(TypeDecorator):
+    """pgvector on PostgreSQL, JSON list elsewhere (SQLite tests)."""
+
+    impl = JSON
+    cache_ok = True
+
+    def __init__(self, dim: int = 768, *args, **kwargs):
+        self.dim = dim
+        super().__init__(*args, **kwargs)
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            try:
+                from pgvector.sqlalchemy import Vector
+                return dialect.type_descriptor(Vector(self.dim))
+            except Exception:
+                return dialect.type_descriptor(PG_JSONB)
+        return dialect.type_descriptor(JSON)
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return list(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return list(value)
+
