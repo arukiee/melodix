@@ -1,6 +1,0 @@
-{
-  "title": "Twinkle Twinkle Little Star",
-  "youtube_url": null,
-  "status": "FAILURE",
-  "error": "AUDIO_LOAD_FAILED: All candidates failed. Last error: Command '['yt-dlp', '--extract-audio', '--audio-quality', '0', '--no-playlist', '--no-warnings', '--ignore-errors', '--retries', '3', '--socket-timeout', '15', '--impersonate', 'chrome-131', '--ffmpeg-location', '/opt/homebrew/bin', '--output', '/var/folders/h6/brsqlq0119zcn90k_p00sk_w0000gn/T/tmpa1_k7yp6/%(title)s.%(ext)s', 'https://www.youtube.com/watch?v=5_KAYR6Pweo']' returned non-zero exit status 1."
-}
